@@ -21,6 +21,8 @@ from retail_ops_forecasting.baselines import (  # noqa: E402
     rolling_mean_lag,
 )
 from retail_ops_forecasting.config import load_config, load_model_config  # noqa: E402
+from retail_ops_forecasting.data import load_calendar  # noqa: E402
+from retail_ops_forecasting.event_uplift import apply_uplift, build_uplift_map  # noqa: E402
 from retail_ops_forecasting.features import select_feature_columns  # noqa: E402
 from retail_ops_forecasting.metrics import summarize  # noqa: E402
 from retail_ops_forecasting.modeling import assemble_predictions, fit_hgb, predict  # noqa: E402
@@ -109,35 +111,72 @@ def main() -> int:
     train_fit = train_df.dropna(subset=["lag_28", "rmean_28"])
     log.info("HGB training rows: %d (features=%d)", len(train_fit), len(feature_cols))
 
+    # Load calendar for event-window uplift
+    calendar_df = load_calendar(cfg.paths.raw_dir / cfg.data.calendar_file)
+
     with tracking.start_run("hgb_demand_v1", tags={"family": "ml", "model": "HistGradientBoosting"}):
         params = dict(mcfg["demand"]["hgb"])
         fit = fit_hgb(train_fit, feature_cols=feature_cols, target_col=target, params=params)
-        val_pred = predict(fit, val_df)
-        test_pred = predict(fit, test_df)
-        m_val = summarize(val_df[target], np.clip(val_pred, 0, None))
-        m_test = summarize(test_df[target], np.clip(test_pred, 0, None))
-        tracking.log_params({"n_features": len(feature_cols), **{f"hgb_{k}": v for k, v in params.items()}})
+        val_pred_raw = predict(fit, val_df)
+        test_pred_raw = predict(fit, test_df)
+
+        # ── Base metrics (no uplift) ──────────────────────────────────────────
+        m_val_base = summarize(val_df[target], np.clip(val_pred_raw, 0, None))
+        m_test_base = summarize(test_df[target], np.clip(test_pred_raw, 0, None))
+
+        # ── Event-window uplift ───────────────────────────────────────────────
+        # Build a flat predictions frame so apply_uplift can match by date
+        cat_col = "category_name" if "category_name" in val_df.columns else "category"
+
+        preds_val = val_df[["store_id", cat_col, "date", target]].copy()
+        preds_val["y_pred"] = np.clip(val_pred_raw, 0, None)
+        preds_test = test_df[["store_id", cat_col, "date", target]].copy()
+        preds_test["y_pred"] = np.clip(test_pred_raw, 0, None)
+
+        # Build uplift map — Buen Fin multiplier learned from val residuals
+        uplift_map = build_uplift_map(
+            calendar_df=calendar_df,
+            cfg=cfg,
+            val_df=preds_val.rename(columns={cat_col: "category", target: target}),
+            target_col=target,
+            pred_col="y_pred",
+        )
+        preds_val  = apply_uplift(preds_val,  "y_pred", uplift_map)
+        preds_test = apply_uplift(preds_test, "y_pred", uplift_map)
+
+        # ── Post-uplift metrics ───────────────────────────────────────────────
+        m_val  = summarize(preds_val[target],  preds_val["y_pred"])
+        m_test = summarize(preds_test[target], preds_test["y_pred"])
+
+        tracking.log_params({
+            "n_features": len(feature_cols),
+            "event_uplift_enabled": cfg.event_uplift.enabled,
+            "buen_fin_multiplier": uplift_map.get(
+                next(iter(d for d in uplift_map if d.month == 11), None), "n/a"
+            ),
+            **{f"hgb_{k}": v for k, v in params.items()},
+        })
         tracking.log_metrics({f"val_{k}": v for k, v in m_val.items() if isinstance(v, float)})
         tracking.log_metrics({f"test_{k}": v for k, v in m_test.items() if isinstance(v, float)})
-        log.info("hgb val: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()})
-        log.info("hgb test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()})
-        metrics_summary["hgb_demand_v1"] = {"val": m_val, "test": m_test}
+        tracking.log_metrics({f"val_base_{k}": v for k, v in m_val_base.items() if isinstance(v, float)})
+        tracking.log_metrics({f"test_base_{k}": v for k, v in m_test_base.items() if isinstance(v, float)})
 
-        # Persist artefacts
+        log.info("hgb base  val:  %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val_base.items()})
+        log.info("hgb uplift val: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()})
+        log.info("hgb base  test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test_base.items()})
+        log.info("hgb uplift test:%s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()})
+        metrics_summary["hgb_demand_v1"] = {"val": m_val, "test": m_test}
+        metrics_summary["hgb_demand_v1_base"] = {"val": m_val_base, "test": m_test_base}
+
+        # Persist model artefacts
         model_path = cfg.paths.models_dir / "demand_hgb.joblib"
         joblib.dump({"model": fit.model, "feature_cols": fit.feature_cols}, model_path)
         feat_path = cfg.paths.models_dir / "demand_feature_cols.json"
         feat_path.write_text(json.dumps(fit.feature_cols, indent=2))
 
-        # Persist predictions for downstream evaluation. Use the readable
-        # category_name when present so reports don't show integer codes.
-        cat_col = "category_name" if "category_name" in val_df.columns else "category"
-        preds_val = val_df[["store_id", cat_col, "date", target]].copy()
-        preds_val["y_pred"] = np.clip(val_pred, 0, None)
-        preds_test = test_df[["store_id", cat_col, "date", target]].copy()
-        preds_test["y_pred"] = np.clip(test_pred, 0, None)
+        # Persist predictions (post-uplift) for downstream evaluation
         if cat_col == "category_name":
-            preds_val = preds_val.rename(columns={"category_name": "category"})
+            preds_val  = preds_val.rename(columns={"category_name": "category"})
             preds_test = preds_test.rename(columns={"category_name": "category"})
         preds_val.to_csv(cfg.paths.processed_dir / "demand_predictions_val.csv", index=False)
         preds_test.to_csv(cfg.paths.processed_dir / "demand_predictions_test.csv", index=False)
