@@ -4,8 +4,9 @@
 > que resuelve **dos decisiones operativas** con un solo backbone de features temporales:
 > (1) demanda diaria por tienda × categoría para planeación de staffing, y
 > (2) requerimiento de efectivo por tienda × día con un buffer P90 transparente.
-> El modelo de demanda alcanza **WAPE = 0.30 en test** (vs. 0.32 del mejor baseline); el de cash,
-> **WAPE = 0.15 con coverage P90 = 94.6%** sobre datos no vistos.
+> El modelo de demanda alcanza **WAPE = 0.247 (LightGBM tuneado) / 0.249 (HGB) en test**
+> con event uplift calibrado (vs. 0.323 del mejor baseline = −7.6 pp).
+> El de cash, **WAPE = 0.153 con coverage P90 = 94.6%** sobre datos no vistos.
 
 ---
 
@@ -95,15 +96,15 @@ como mejoras futuras.
 
 WAPE de validación con uplift: **0.179** (HGB), **0.178** (LightGBM tuneado).
 
-**Por evento (test)** — el modelo es **mejor en quincenas** (WAPE 0.20) que en días regulares (0.25),
-porque la quincena es un patrón predecible. Es **peor en holidays** (WAPE 0.65, n=1,920) por la
-varianza inherente y el muestreo limitado.
+**Por evento (test, post-uplift)** — el modelo es **mejor en quincenas** (WAPE 0.20) que en días
+regulares (0.25), porque la quincena es un patrón predecible. El uplift redujo holidays de
+0.65 a **0.39** (mejora −26 pp). Navidad **0.29**, weekend **0.23**.
 
-**Por categoría (test)**: Abarrotes (categoría con volumen más alto) WAPE 0.28; Electronica
-(volumen más bajo) WAPE 0.34. El efecto categoría-pequeña es esperado: WAPE escala con la
-proporción de error sobre el volumen.
+**Por categoría (test)**: Abarrotes WAPE **0.24** (volumen más alto); Electronica **0.29**
+(volumen más bajo). El efecto categoría-pequeña es esperado: WAPE escala con la proporción
+de error sobre el volumen.
 
-**Por formato (test)**: Bodega 0.29, Express 0.31, Supercenter 0.30 — diferencias pequeñas.
+**Por formato (test)**: Bodega 0.24, Express 0.26, Supercenter 0.25 — diferencias pequeñas.
 
 ### 4.2 Cash (held-out test)
 
@@ -135,8 +136,9 @@ estables semana a semana. Es peor en fines de semana (0.19) por la varianza día
 
 ## 5. Recomendaciones de negocio
 
-1. **Adoptar el demand forecast para staffing de Bodega y Express** (WAPE 0.29-0.31). Para
-   Supercenter, usar como input complementario hasta tuneo específico (variabilidad mayor).
+1. **Adoptar el demand forecast para staffing** en los tres formatos (WAPE post-uplift
+   0.24-0.26 uniforme). LightGBM tuneado es la opción default; HGB es backup con prácticamente
+   el mismo desempeño.
 2. **Operacionalizar la regla de cash con buffer P90.** En el test holdout, en el 94.6% de los
    días-tienda el efectivo recomendado fue suficiente. Para tiendas con coverage < 0.85
    (cola del histograma) introducir un buffer adicional manual.

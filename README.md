@@ -9,7 +9,7 @@ dos decisiones con un mismo backbone de features temporales:
 | **Demanda** | tienda × categoría × día | `total_transactions` | Staffing y capacidad de checkout |
 | **Efectivo** | tienda × día | `amount_cash` + buffer P90 | Recomendación operativa de carga de efectivo |
 
-**Resultados (test holdout 2023-12 → 2024-02):** demanda WAPE = 0.296 · efectivo WAPE = 0.153 · coverage P90 = 94.6 %
+**Resultados (test holdout 2023-12 → 2024-02):** demanda WAPE = **0.247** (LightGBM tuneado) / **0.249** (HGB) con event uplift · efectivo WAPE = **0.153** · coverage P90 = **94.6 %**
 
 Detalle del razonamiento, trade-offs y resultados → [`reports/final_report.md`](reports/final_report.md).
 
@@ -123,6 +123,12 @@ docker compose run --rm tests
 docker compose up mlflow
 # Abre http://localhost:5001
 ```
+
+**Qué verás en el UI:**
+- **Experiments**: `demand_forecasting` (baselines + HGB + LightGBM), `cash_forecasting` (HGB + buffer), `evaluation` (figuras + breakdowns). Cada run con params, metrics, tags.
+- **Models** (Model Registry): `demand_hgb`, `demand_lgb`, `cash_hgb` — cada uno con signature de entrada/salida e input example.
+- **Datasets**: 9 datasets registrados (`demand_train`/`val`/`test` y `cash_train`/`val`/`test`) con source, schema y row count.
+- **Artifacts por run**: model files, predicciones CSV, breakdowns por segmento, figuras de actual-vs-pred y residuos.
 
 > **Nota sobre el puerto en macOS**: el puerto **host por defecto es 5001** (no 5000) porque macOS Monterey+ tiene **AirPlay Receiver** escuchando en el 5000 y lo bloquea. Si prefieres usar otro puerto: `MLFLOW_HOST_PORT=5050 docker compose up mlflow`.
 

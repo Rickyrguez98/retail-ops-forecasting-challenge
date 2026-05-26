@@ -38,15 +38,16 @@ Dos modelos hermanos comparten arquitectura y pipeline de features:
 
 ### Demand
 
-| Métrica | Mejor baseline | HGB v1 | Δ |
-|---------|---------------:|-------:|---|
-| WAPE    | 0.323 (lag-7)  | **0.296** | -2.7 pp |
-| MAE     | 228.7          | **209.4** | -19.3 tx/día |
-| RMSE    | 548.0          | **467.9** | |
-| sMAPE   | 0.287          | **0.277** | |
-| Bias    | -16.2          | -26.9 | leve sobre-forecast |
+| Métrica | Mejor baseline | HGB base | HGB + uplift | **LightGBM + uplift** | Δ vs baseline |
+|---------|---------------:|---------:|-------------:|----------------------:|--------------:|
+| WAPE    | 0.323 (lag-7)  | 0.296    | **0.249**    | **0.247**             | **−7.6 pp** |
+| MAE     | 228.7          | 209.4    | 176.1        | **174.8**             | −53.9 tx/día |
+| RMSE    | 548.0          | 467.9    | 313.0        | **308.4**             | −239.6 (RMSE picos) |
+| sMAPE   | 0.287          | 0.277    | 0.255        | **0.254**             | −0.033 |
+| Bias    | −16.2          | −26.9    | −74.0        | −75.9                 | (uplift absorbe sub-forecast) |
 
-WAPE val (incluye Buen Fin) = **0.262**.
+WAPE val (incluye Buen Fin) — base **0.262**, **post-uplift 0.179** (HGB) / **0.178** (LightGBM).
+LightGBM tuneado con Optuna (30 trials TPE Bayesian opt) supera al HGB por 0.2 pp en test.
 
 ### Cash
 
@@ -59,15 +60,18 @@ WAPE val (incluye Buen Fin) = **0.262**.
 | Bias    | +14,626 (under-forecast → buffer compensa) |
 | **Coverage P90 (recommended ≥ actual)** | **0.946** |
 
-### Desempeño por segmento (test)
+### Desempeño por segmento (test, post-uplift)
 
-**Demand WAPE por evento:** payday 0.20, regular 0.25, navidad 0.29, weekend 0.31, holiday 0.65 (n=1,920, alta varianza).
+**Demand WAPE por evento:** payday **0.20**, weekend **0.23**, regular **0.25**, navidad **0.29**, holiday **0.39** (n=1,920, alta varianza).
+El event uplift redujo holiday de 0.65 → 0.39 (−26 pp) y weekend de 0.31 → 0.23 (−8 pp).
 
-**Demand WAPE por categoría:** Abarrotes 0.28, Bebidas 0.29, Cuidado_Personal 0.30, Hogar 0.31, Ropa 0.31, Electronica 0.34 (categoría más pequeña, mayor relativo).
+**Demand WAPE por categoría:** Abarrotes **0.24**, Bebidas **0.24**, Cuidado_Personal **0.26**, Hogar **0.26**, Ropa **0.27**, Electronica **0.29** (categoría más pequeña, mayor relativo).
 
-**Cash WAPE por evento:** regular 0.11, navidad 0.12, payday 0.13, weekend 0.19, holiday 0.21.
+**Demand WAPE por formato:** Bodega **0.24**, Supercenter **0.25**, Express **0.26** — muy parejo post-uplift.
 
-**Cash WAPE por formato:** Express 0.13, Bodega 0.14, Supercenter 0.18.
+**Cash WAPE por evento:** regular **0.11**, navidad **0.12**, payday **0.13**, weekend **0.19**, holiday **0.21**.
+
+**Cash WAPE por formato:** Express **0.13**, Bodega **0.14**, Supercenter **0.18**.
 
 ## Datos de entrenamiento
 

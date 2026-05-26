@@ -97,23 +97,30 @@ Resultado del Review Agent (Phase 8). Todos los items implementados 🟢.
 | Item | Status | Nota |
 |------|--------|------|
 | Bayesian hyperparameter optimization (Optuna) | 🟢 | LightGBM tuneado con 30 trials TPE sobre 9 hiperparámetros |
-| LightGBM benchmark | 🟢 | Integrado en pipeline (`make train-demand-lgb`), tracked en MLflow |
-| Event-window uplift post-processor | 🟢 | Multiplicadores calibrados por evento (Buen Fin, Dic 24-25, Dic 31) |
-| Coverage por tienda para cash | 🟢 | Buffer P90 por tienda; coverage histograma generado |
+| LightGBM benchmark | 🟢 | Integrado en pipeline (`make train-demand-lgb`); WAPE test 0.247 (vs HGB 0.249) |
+| Event-window uplift post-processor | 🟢 | Multiplicadores calibrados por evento (Buen Fin aprendido del val, Dic 24-25, Dic 31) |
+| Coverage por tienda para cash | 🟢 | Buffer P90 por tienda; coverage test 94.6% (target ≥ 90%) |
 | Análisis por segmento (formato, región, evento) | 🟢 | Breakdowns en `reports/*_metrics_by_*.csv` |
-| Containerización completa | 🟢 | Dockerfile multi-stage + docker-compose con 3 servicios |
+| Containerización completa | 🟢 | Dockerfile multi-stage + docker-compose con 3 servicios (pipeline / tests / mlflow) |
+| MLflow Model Registry | 🟢 | 3 modelos registrados (demand_hgb v1, demand_lgb v1, cash_hgb v1) con signature |
+| MLflow Dataset lineage | 🟢 | 9 datasets logueados (train/val/test × demand + cash) con source + schema |
+| MLflow Artifacts por run | 🟢 | Model files, predicciones CSV, figuras y breakdowns logueados |
 
 ## Conclusión
 
-Estado: **listo para entrega**. Reproduce desde clean end-to-end con `make all`. Tests pasan.
-Documentación completa con números reales (no placeholders). Decisiones técnicas documentadas
-con alternativas.
+Estado: **listo para entrega**. Reproduce desde clean end-to-end con `make all` o `docker compose run --rm pipeline`. Tests pasan (19/19). Documentación completa con números reales verificados contra los CSVs/JSON generados. Decisiones técnicas documentadas con alternativas.
 
 Si el reviewer quiere reproducir:
 ```bash
 git clone <repo>
 cd retail-ops-forecasting-challenge
-make install
-make test          # 19 tests, ~1s
-make all           # end-to-end pipeline, ~30s
+
+# Opción A — Local
+make install && make test && make all
+
+# Opción B — Docker
+docker compose build
+docker compose run --rm tests       # 19/19 passed
+docker compose run --rm pipeline    # full pipeline + LightGBM Optuna
+docker compose up mlflow            # UI en http://localhost:5001
 ```
