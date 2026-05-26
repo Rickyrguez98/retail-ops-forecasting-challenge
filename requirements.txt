@@ -12,4 +12,6 @@ ipykernel>=6.0
 tabulate>=0.9
 joblib>=1.2
 pyarrow>=10.0
+lightgbm>=4.0.0
+optuna>=3.4.0
 
