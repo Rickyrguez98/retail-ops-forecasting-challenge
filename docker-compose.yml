@@ -23,6 +23,8 @@ services:
     command: make test
 
   # ── MLflow UI (view experiment results) ─────────────────────────────────────
+  # Host port is 5001 (not 5000) because macOS AirPlay Receiver hijacks 5000
+  # by default. Override with MLFLOW_HOST_PORT env var if you need a different port.
   mlflow:
     build:
       context: .
@@ -31,6 +33,6 @@ services:
     volumes:
       - ./mlruns:/app/mlruns
     ports:
-      - "5000:5000"
+      - "${MLFLOW_HOST_PORT:-5001}:5000"
     working_dir: /app
     command: mlflow ui --host 0.0.0.0 --port 5000 --backend-store-uri ./mlruns

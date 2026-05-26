@@ -121,8 +121,10 @@ docker compose run --rm tests
 
 ```bash
 docker compose up mlflow
-# Abre http://localhost:5000
+# Abre http://localhost:5001
 ```
+
+> **Nota sobre el puerto en macOS**: el puerto **host por defecto es 5001** (no 5000) porque macOS Monterey+ tiene **AirPlay Receiver** escuchando en el 5000 y lo bloquea. Si prefieres usar otro puerto: `MLFLOW_HOST_PORT=5050 docker compose up mlflow`.
 
 > **Nota:** la primera vez que construyes la imagen tarda ~3-5 min mientras descarga dependencias. Las ejecuciones siguientes usan el layer cache de Docker y son instantáneas.
 >
