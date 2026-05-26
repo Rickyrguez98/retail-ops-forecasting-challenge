@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  # ── Full pipeline (default) ─────────────────────────────────────────────────
+  pipeline:
+    build:
+      context: .
+      target: app
+    image: retail-ops-forecasting:latest
+    volumes:
+      # Mount local artifact dirs so outputs land on your machine
+      - ./data/interim:/app/data/interim
+      - ./data/processed:/app/data/processed
+      - ./models:/app/models
+      - ./reports:/app/reports
+      - ./mlruns:/app/mlruns
+    command: make all
+
+  # ── Tests only ──────────────────────────────────────────────────────────────
+  tests:
+    build:
+      context: .
+      target: app
+    image: retail-ops-forecasting:latest
+    command: make test
+
+  # ── MLflow UI (view experiment results) ─────────────────────────────────────
+  mlflow:
+    build:
+      context: .
+      target: deps
+    image: retail-ops-forecasting:latest
+    volumes:
+      - ./mlruns:/app/mlruns
+    ports:
+      - "5000:5000"
+    working_dir: /app
+    command: mlflow ui --host 0.0.0.0 --port 5000 --backend-store-uri ./mlruns
