@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+env/
+.env
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Project artifacts
+data/interim/*
+data/processed/*
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+models/*
+!models/.gitkeep
+mlruns/
+mlartifacts/
+
+# Reports (figures are committed; large temp outputs ignored)
+reports/figures/*.tmp
+*.pkl
+*.joblib
+*.parquet
+
+# Notebooks output cells (keep narrative + code; outputs regenerated on run)
+# Not stripped automatically — left as-is for reviewer convenience
