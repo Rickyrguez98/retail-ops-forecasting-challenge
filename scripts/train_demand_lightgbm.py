@@ -161,7 +161,6 @@ def main() -> int:
         log.info("lgb uplift test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()})
 
         # ── Persist artefacts ────────────────────────────────────────────────
-        # LightGBM booster requires its own save format
         booster_path = cfg.paths.models_dir / "demand_lgb.txt"
         fit.model.save_model(str(booster_path), num_iteration=fit.best_iteration)
         meta_path = cfg.paths.models_dir / "demand_lgb_meta.json"
@@ -177,8 +176,38 @@ def main() -> int:
         if cat_col == "category_name":
             preds_val = preds_val.rename(columns={"category_name": "category"})
             preds_test = preds_test.rename(columns={"category_name": "category"})
-        preds_val.to_csv(cfg.paths.processed_dir / "demand_lgb_predictions_val.csv", index=False)
-        preds_test.to_csv(cfg.paths.processed_dir / "demand_lgb_predictions_test.csv", index=False)
+        val_preds_path  = cfg.paths.processed_dir / "demand_lgb_predictions_val.csv"
+        test_preds_path = cfg.paths.processed_dir / "demand_lgb_predictions_test.csv"
+        preds_val.to_csv(val_preds_path, index=False)
+        preds_test.to_csv(test_preds_path, index=False)
+
+        # ── MLflow: Model Registry + Artifacts + Dataset lineage ─────────────
+        try:
+            from mlflow.models.signature import infer_signature
+            example = train_fit[fit.feature_cols].head(3)
+            signature = infer_signature(example, predict_lgb(fit, train_fit.head(3)))
+        except Exception:
+            example, signature = None, None
+
+        tracking.log_lightgbm_model(
+            fit.model,
+            name="demand_lgb_model",
+            input_example=example,
+            signature=signature,
+            registered_model_name="demand_lgb",
+        )
+        tracking.log_artifact(booster_path, artifact_path="model_files")
+        tracking.log_artifact(meta_path, artifact_path="model_files")
+        tracking.log_artifact(val_preds_path, artifact_path="predictions")
+        tracking.log_artifact(test_preds_path, artifact_path="predictions")
+
+        raw_src = str(cfg.paths.processed_dir / "demand_features.parquet")
+        tracking.log_dataset(train_fit, name="demand_train", source=raw_src,
+                             context="training", targets=target)
+        tracking.log_dataset(val_fit, name="demand_val", source=raw_src,
+                             context="validation", targets=target)
+        tracking.log_dataset(test_df, name="demand_test", source=raw_src,
+                             context="test", targets=target)
 
     # ── Append to demand experiment summary ──────────────────────────────────
     summary_path = cfg.paths.reports_dir / "demand_experiment_summary.json"

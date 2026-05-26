@@ -168,7 +168,7 @@ def main() -> int:
         metrics_summary["hgb_demand_v1"] = {"val": m_val, "test": m_test}
         metrics_summary["hgb_demand_v1_base"] = {"val": m_val_base, "test": m_test_base}
 
-        # Persist model artefacts
+        # Persist model artefacts (local files)
         model_path = cfg.paths.models_dir / "demand_hgb.joblib"
         joblib.dump({"model": fit.model, "feature_cols": fit.feature_cols}, model_path)
         feat_path = cfg.paths.models_dir / "demand_feature_cols.json"
@@ -178,8 +178,39 @@ def main() -> int:
         if cat_col == "category_name":
             preds_val  = preds_val.rename(columns={"category_name": "category"})
             preds_test = preds_test.rename(columns={"category_name": "category"})
-        preds_val.to_csv(cfg.paths.processed_dir / "demand_predictions_val.csv", index=False)
-        preds_test.to_csv(cfg.paths.processed_dir / "demand_predictions_test.csv", index=False)
+        val_preds_path  = cfg.paths.processed_dir / "demand_predictions_val.csv"
+        test_preds_path = cfg.paths.processed_dir / "demand_predictions_test.csv"
+        preds_val.to_csv(val_preds_path, index=False)
+        preds_test.to_csv(test_preds_path, index=False)
+
+        # ── MLflow: Model Registry + Artifacts + Dataset lineage ─────────────
+        try:
+            from mlflow.models.signature import infer_signature
+            example = train_fit[fit.feature_cols].head(3)
+            signature = infer_signature(example, fit.model.predict(example))
+        except Exception:
+            example, signature = None, None
+
+        tracking.log_sklearn_model(
+            fit.model,
+            name="demand_hgb_model",
+            input_example=example,
+            signature=signature,
+            registered_model_name="demand_hgb",
+        )
+        tracking.log_artifact(model_path, artifact_path="model_files")
+        tracking.log_artifact(feat_path, artifact_path="model_files")
+        tracking.log_artifact(val_preds_path, artifact_path="predictions")
+        tracking.log_artifact(test_preds_path, artifact_path="predictions")
+
+        # Dataset lineage: train / val / test
+        raw_src = str(cfg.paths.processed_dir / "demand_features.parquet")
+        tracking.log_dataset(train_fit, name="demand_train", source=raw_src,
+                             context="training", targets=target)
+        tracking.log_dataset(val_df, name="demand_val", source=raw_src,
+                             context="validation", targets=target)
+        tracking.log_dataset(test_df, name="demand_test", source=raw_src,
+                             context="test", targets=target)
 
     # Summary JSON for the report
     out_summary = cfg.paths.reports_dir / "demand_experiment_summary.json"

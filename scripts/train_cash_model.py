@@ -92,13 +92,43 @@ def main() -> int:
         tracking.log_metrics({"val_coverage": cov_val, "test_coverage": cov_test, "buffer_quantile": cfg.cash.buffer_quantile})
         log.info("Coverage P%d val=%.3f test=%.3f", int(cfg.cash.buffer_quantile * 100), cov_val, cov_test)
 
-        joblib.dump({"model": model, "feature_cols": feature_cols, "buffers": buffers}, cfg.paths.models_dir / "cash_hgb.joblib")
-        recs_test.to_csv(cfg.paths.reports_dir / "cash_forecast_recommendations.csv", index=False)
+        model_path = cfg.paths.models_dir / "cash_hgb.joblib"
+        joblib.dump({"model": model, "feature_cols": feature_cols, "buffers": buffers}, model_path)
+        recs_path = cfg.paths.reports_dir / "cash_forecast_recommendations.csv"
+        recs_test.to_csv(recs_path, index=False)
         # Predictions for the unified evaluator
         out_val = cfg.paths.processed_dir / "cash_predictions_val.csv"
         out_test = cfg.paths.processed_dir / "cash_predictions_test.csv"
         val_df[["store_id", "date", target, "y_pred"]].to_csv(out_val, index=False)
         test_df[["store_id", "date", target, "y_pred"]].to_csv(out_test, index=False)
+
+        # ── MLflow: Model Registry + Artifacts + Dataset lineage ─────────────
+        try:
+            from mlflow.models.signature import infer_signature
+            example = train_fit[feature_cols].head(3)
+            signature = infer_signature(example, model.predict(example))
+        except Exception:
+            example, signature = None, None
+
+        tracking.log_sklearn_model(
+            model,
+            name="cash_hgb_model",
+            input_example=example,
+            signature=signature,
+            registered_model_name="cash_hgb",
+        )
+        tracking.log_artifact(model_path, artifact_path="model_files")
+        tracking.log_artifact(recs_path, artifact_path="recommendations")
+        tracking.log_artifact(out_val, artifact_path="predictions")
+        tracking.log_artifact(out_test, artifact_path="predictions")
+
+        raw_src = str(cfg.paths.processed_dir / "cash_features.parquet")
+        tracking.log_dataset(train_fit, name="cash_train", source=raw_src,
+                             context="training", targets=target)
+        tracking.log_dataset(val_df, name="cash_val", source=raw_src,
+                             context="validation", targets=target)
+        tracking.log_dataset(test_df, name="cash_test", source=raw_src,
+                             context="test", targets=target)
 
     cfg.paths.reports_dir.joinpath("cash_experiment_summary.json").write_text(
         json.dumps(metrics_summary, indent=2, default=float)
