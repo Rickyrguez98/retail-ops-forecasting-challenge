@@ -125,23 +125,28 @@ docker compose up mlflow
 ```
 
 > **Nota:** la primera vez que construyes la imagen tarda ~3-5 min mientras descarga dependencias. Las ejecuciones siguientes usan el layer cache de Docker y son instantáneas.
+>
+> **Espacio en disco requerido:** la imagen final pesa ~1.5 GB (Python 3.11-slim + pandas + scikit-learn + lightgbm + mlflow). Asegúrate de tener al menos **3 GB libres** en el disco anfitrión antes de construir.
 
 ---
 
 ## Targets del Makefile
 
 ```bash
-make install        # pip install -r requirements.txt
-make test           # 19 pytest deterministas (no requieren CSVs)
-make quality        # data quality report → reports/data_quality_report.md
-make prepare        # parquets interim + processed
-make train-demand   # baselines + HGB, MLflow tracking
-make train-cash     # HGB + per-store P90 buffer
-make evaluate       # breakdowns por segmento/evento + figuras
-make report         # consolida todo → reports/experiment_summary.md
-make all            # quality → prepare → train-demand → train-cash → evaluate → report
-make clean          # elimina artefactos generados (mantiene raw data y reports)
+make install            # pip install -r requirements.txt
+make test               # 19 pytest deterministas (no requieren CSVs)
+make quality            # data quality report → reports/data_quality_report.md
+make prepare            # parquets interim + processed
+make train-demand       # baselines + HGB + event-window uplift, MLflow tracking
+make train-demand-lgb   # LightGBM benchmark + Optuna Bayesian tuning (N_TRIALS=30 default)
+make train-cash         # HGB + per-store P90 buffer
+make evaluate           # breakdowns por segmento/evento + figuras
+make report             # consolida todo → reports/experiment_summary.md
+make all                # quality → prepare → train-demand → train-demand-lgb → train-cash → evaluate → report
+make clean              # elimina artefactos generados (mantiene raw data y reports)
 ```
+
+> **Personalizar el tuning de LightGBM**: `make train-demand-lgb N_TRIALS=50` corre 50 trials de Optuna en lugar de 30.
 
 ---
 
@@ -204,8 +209,8 @@ Detalle por decisión → [`DECISIONS.md`](DECISIONS.md).
 | [`PROCESS.md`](PROCESS.md) | Diario de proceso por fase, herramientas usadas |
 | [`DECISIONS.md`](DECISIONS.md) | 12 trade-offs técnicos y de modelado con alternativas |
 | [`AI_USAGE.md`](AI_USAGE.md) | Transparencia sobre uso de IA (qué generó vs. qué se validó manualmente) |
-| [`reports/model_card.md`](reports/model_card.md) | Model card estilo Google: métricas, features, limitaciones, equidad |
-| [`reports/final_report.md`](reports/final_report.md) | Resultados, recomendaciones de negocio, limitaciones honestas |
+| [`reports/model_card.md`](reports/model_card.md) | Model card estilo Google: métricas, features, componentes implementados, equidad |
+| [`reports/final_report.md`](reports/final_report.md) | Resultados, recomendaciones de negocio, componentes del sistema |
 | [`reports/experiment_summary.md`](reports/experiment_summary.md) | Generado por `make report` — todas las runs con métricas |
 
 ---

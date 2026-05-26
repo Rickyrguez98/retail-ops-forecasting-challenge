@@ -1,0 +1,48 @@
+# Git
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Generated artifacts (built fresh inside the container)
+data/interim/*
+data/processed/*
+models/*
+mlruns/
+mlartifacts/
+reports/figures/*.png
+reports/*.json
+reports/*.csv
+
+# Notebooks (only EDA narrative; not needed for the pipeline)
+notebooks/*.ipynb
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Docs that don't need to live in the image
+*.md
+!README.md
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# Tests are run with `docker compose run tests` separately
+# but keep them in the image for that path
