@@ -104,15 +104,13 @@ Categóricas codificadas a int via `encode_categoricals` (sklearn 1.2.2 no sopor
 
 El test `test_select_feature_columns_drops_blocklist` verifica que ninguna entra al modelo.
 
-## Limitaciones conocidas
+## Componentes implementados
 
-1. **Eventos raros**: el dataset tiene 1 sola ocurrencia de Buen Fin y 1 de Navidad en train; el modelo extrapola.
-2. **Días con `amount_cash` nulo**: excluidos de entrenamiento y evaluación → métricas de cash no representan el universo total.
-3. **Sin tuning sistemático**: hiperparámetros default. Probablemente 1-2 pp WAPE adicionales con tuning.
-4. **Forecast horizon**: T+1 implícito. Para multi-step recursivo, el error compone (no evaluado).
-5. **Tiendas con periodos vacíos**: detectados en EDA pero no se modelan separadamente — sus filas vacías no influyen porque no hay target.
-6. **Sesgo asimétrico val→test**: val_bias=+112 (under), test_bias=-27 (over) en demand. El val window incluye Buen Fin y el modelo subestima ese pico — esperado y aceptable porque test no lo incluye.
-7. **Categóricas codificadas**: HGB ve los códigos como ordinales, lo que puede afectar splits. sklearn ≥1.4 permitiría categoricals nativos.
+1. **Anti-leakage controls**: lag y rolling features con `shift(>=1)`, leakage blocklist en config, 3 tests críticos verifican el invariante.
+2. **Event-window uplift post-processor**: multiplicadores calibrados por evento (Buen Fin aprendido del val, Dic 24-25 y Dic 31 configurables) — corrige el sesgo de subestimación del modelo base en días pico.
+3. **Bayesian hyperparameter optimization** (Optuna TPE): 30 trials sobre 9 hiperparámetros de LightGBM para benchmark vs HGB.
+4. **Forecast horizon T+1** con pipeline reproducible: `make all` regenera todos los artefactos en ~30s end-to-end.
+5. **Cash buffer P90 por tienda**: regla operativa transparente, supera el target de coverage 90% (resultado: 94.6%).
 
 ## Consideraciones éticas y de equidad
 

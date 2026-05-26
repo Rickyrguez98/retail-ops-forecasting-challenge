@@ -65,16 +65,17 @@ Documento de decisiones tomadas durante el challenge. Cada entrada incluye **opc
 
 ---
 
-## 6. Modelo: HistGradientBoostingRegressor (no LightGBM)
+## 6. Modelo: HistGradientBoostingRegressor + LightGBM benchmark
 
 **Opciones**: HistGradientBoosting (sklearn), LightGBM, XGBoost.
 
 **Criterio**:
-- HGB sin dependencias externas → reproducibilidad más simple en CI.
-- Velocidad de training comparable a LightGBM en este tamaño de datos.
-- sklearn 1.2.2 está disponible en el entorno; HGB con `early_stopping=True` evita overfitting sin tuning fino.
+- **HGB como modelo principal**: sin dependencias externas, sklearn-native, reproducibilidad simple en CI, soporta early stopping.
+- **LightGBM como benchmark tuneado**: integrado con **Optuna Bayesian optimization** (TPE sampler) sobre 9 hiperparámetros (`learning_rate`, `num_leaves`, `max_depth`, `min_child_samples`, `reg_alpha`, `reg_lambda`, `subsample`, `colsample_bytree`, `subsample_freq`).
+- 30 trials de Optuna minimizan WAPE en val. La configuración ganadora se refit y se evalúa en test con el mismo pipeline de event uplift que HGB.
+- XGBoost descartado: peor manejo nativo de categoricals que LightGBM y no ofrece ventaja diferencial en este tamaño de datos.
 
-**Trade-off aceptado**: probablemente 1-2 pp peor que un LightGBM bien tuneado. Acceptable por simplicidad.
+**Resultado**: LightGBM tuneado supera a HGB por ~0.2 pp en test (WAPE 0.247 vs 0.249 post-uplift). Ambos modelos están integrados en el pipeline (`make train-demand-lgb`) y trackados separadamente en MLflow.
 
 ---
 

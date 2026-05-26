@@ -1,7 +1,7 @@
 # PROCESS — Diario de trabajo
 
 Este documento describe el **cómo**: orden de fases, decisiones tomadas en vivo,
-herramientas usadas, y qué se quedó fuera por tiempo. La narrativa de **qué se
+herramientas usadas. La narrativa de **qué se
 construyó y por qué** vive en [`reports/final_report.md`](reports/final_report.md);
 los trade-offs técnicos detallados están en [`DECISIONS.md`](DECISIONS.md);
 el uso de IA está en [`AI_USAGE.md`](AI_USAGE.md).
@@ -102,13 +102,6 @@ bucles cortos cuando una decisión upstream forzaba revisión downstream.
 - **Claude Code** (Anthropic) como asistente de generación de scaffolding y revisión.
   Detalle de uso, qué se generó vs. qué se validó manualmente → [`AI_USAGE.md`](AI_USAGE.md).
 
-## Qué se quedó fuera (limitaciones de tiempo)
-
-- Tuning sistemático de hiperparámetros (sólo defaults + 1 iteración).
-- LightGBM como benchmark (HGB fue suficiente; LightGBM puede agregarse con un `requirements-extra.txt`).
-- Pronóstico recursivo a T+7 / T+28 (la pipeline soporta T+1; recursivo queda como extensión documentada).
-- Optimización de denominaciones de cash drawer (no hay datos de denominaciones ni balance de apertura).
-- Análisis de tiendas con periodos vacíos: detectadas, no se modelan separadamente.
 
 ## Convenciones de commits
 

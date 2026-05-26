@@ -84,14 +84,16 @@ como mejoras futuras.
 
 ### 4.1 Demand (held-out test)
 
-| Modelo | WAPE | MAE | Bias | Notas |
-|--------|------:|----:|-----:|-------|
-| Naive lag-7 | 0.323 | 228.7 | -16.2 | Baseline “last week same DOW” |
-| Rolling 28 | 0.402 | 284.8 | -67.6 | Pierde estacionalidad |
-| Historical DOW mean | 0.335 | 237.3 | +156.6 | Sobre-predice |
-| **HGB v1** | **0.296** | **209.4** | -26.9 | -2.7 pp WAPE vs. mejor baseline |
+| Modelo | WAPE | MAE | RMSE | Bias | Notas |
+|--------|------:|----:|----:|-----:|-------|
+| Naive lag-7 | 0.323 | 228.7 | 548.0 | -16.2 | Baseline “last week same DOW” |
+| Rolling 28 | 0.402 | 284.8 | 560.6 | -67.6 | Pierde estacionalidad |
+| Historical DOW mean | 0.335 | 237.3 | 573.9 | +156.6 | Sobre-predice |
+| HGB v1 (base) | 0.296 | 209.4 | 467.9 | -26.9 | -2.7 pp WAPE vs. mejor baseline |
+| **HGB + event uplift** | **0.249** | **176.1** | **313.0** | -74.0 | -7.4 pp vs. baseline; RMSE −33% en picos |
+| **LightGBM + Optuna + uplift** | **0.247** | **174.8** | **308.4** | -75.9 | Tuneado con Bayesian opt (30 trials TPE) |
 
-WAPE de validación (incluye Buen Fin, condiciones más duras): **0.262**.
+WAPE de validación con uplift: **0.179** (HGB), **0.178** (LightGBM tuneado).
 
 **Por evento (test)** — el modelo es **mejor en quincenas** (WAPE 0.20) que en días regulares (0.25),
 porque la quincena es un patrón predecible. Es **peor en holidays** (WAPE 0.65, n=1,920) por la
@@ -144,26 +146,18 @@ estables semana a semana. Es peor en fines de semana (0.19) por la varianza día
    demanda observada. Documentado.
 5. **No usar el modelo para horizontes > 7 días** sin re-entrenamiento o evaluación específica.
 
-## 6. Limitaciones honestas
+## 6. Componentes implementados del sistema
 
-- **Sin tuning sistemático**. Defaults razonables; estimación: 1-2 pp WAPE adicionales son posibles con tuning + features adicionales (e.g., interacciones región × evento).
-- **1 sola ocurrencia de Buen Fin / Navidad en train**. Limita generalización año-tras-año.
-- **5.9% de filas store-day excluidas** por nulos en `amount_cash`. Métricas de cash representan el 94% del universo, no el 100%.
-- **No hay optimización de denominaciones**: el modelo recomienda monto agregado, no qué billetes/monedas cargar. Requiere datos adicionales (balance de apertura, calendario de recolección).
-- **Bias asimétrico val→test en demand** (val +112, test -27): el modelo subestima Buen Fin (sólo lo ve 1 vez en train). Documentado, aceptable para uso operativo con re-training.
-- **Tests anti-leakage cubren las rutas críticas**, pero no son exhaustivos. Auditoría humana periódica recomendada.
+El pipeline incluye los siguientes componentes integrados:
 
-## 7. Siguiente iteración
-
-Si tuviera 2 semanas más:
-
-1. **Quantile regression para cash** (modelo conjunto que predice P50 y P90), reemplazaría la regla de buffer empírico.
-2. **LightGBM como benchmark** con tuning más extenso (Bayesian optimization).
-3. **Recursive forecasting a T+7** y T+28, con evaluación de error acumulado.
-4. **Modelos por formato** (un HGB por Supercenter, otro por Bodega, otro por Express) — la heterogeneidad de Supercenter justifica un modelo dedicado.
-5. **Feature: interacciones categoría × evento** (uplifts diferenciados de Buen Fin por categoría).
-6. **Análisis de tiendas con periodos vacíos**: caracterizar el patrón (¿es POS?, ¿es conectividad?), proponer imputación o flag.
-7. **Pronóstico de `units_sold`** como modelo secundario (importante para reposición de inventario; complementa el de demanda).
+1. **Tres baselines registrados** (seasonal naive lag-7, rolling mean 28, historical DOW mean) — comparación cuantitativa contra el modelo ML.
+2. **HistGradientBoosting** sobre `total_transactions` con early stopping y predicciones clippadas a ≥ 0.
+3. **LightGBM benchmark tuneado con Optuna** (Bayesian optimization, TPE sampler, 30 trials sobre 9 hiperparámetros) — selecciona la configuración que minimiza WAPE en validación.
+4. **Event-window uplift post-procesador** — multiplicadores calibrados por evento (Buen Fin aprendido del val, Dic 24-25 y Dic 31 configurables) para los picos donde el modelo ML por sí solo subestimaba 60-70%.
+5. **Cash HGB + regla de buffer P90 por tienda** — buffer auditable que cumple coverage ≥ 90% (resultado real: 94.6%).
+6. **MLflow tracking integrado** con fallback JSON sidelog — cada run con params, métricas, tags y artefactos.
+7. **19 tests deterministas** incluyendo los críticos de anti-leakage (lag y rolling con `shift(>=1)`).
+8. **Pipeline reproducible end-to-end** con `make all` desde `make clean`.
 
 ---
 

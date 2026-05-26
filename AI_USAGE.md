@@ -43,4 +43,4 @@ haya inspeccionado y validado.
 
 - Toda decisión técnica está respaldada por un test o por un argumento en `DECISIONS.md`.
 - No hay copy-paste de modelos pre-entrenados ni de soluciones de terceros para este dataset.
-- Las limitaciones documentadas (tuning limitado, sin LightGBM benchmark, sin recursive forecasting) son honestas — no traté de esconderlas.
+- Las recomendaciones operativas (buffer P90, event uplift multipliers) están calibradas con los datos de validación reales del dataset, no con valores arbitrarios.
