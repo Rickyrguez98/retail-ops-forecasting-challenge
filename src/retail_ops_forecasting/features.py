@@ -133,8 +133,7 @@ def select_feature_columns(
 def encode_categoricals(df: pd.DataFrame, cat_cols: Iterable[str] = CAT_COL_DEFAULT) -> pd.DataFrame:
     """Map known categorical columns to integer codes, leaving unknowns as -1.
 
-    sklearn 1.2.x doesn't support string categoricals in HistGB natively,
-    so we encode them here. Encoding is fit on the union of unique values
+    Encode string categoricals here. Encoding is fit on the union of unique values
     seen in the input frame; that is fine for our static categoricals
     (formats/regions/categories don't change in test).
 
