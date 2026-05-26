@@ -37,8 +37,7 @@ Documento de decisiones tomadas durante el challenge. Cada entrada incluye **opc
 
 ---
 
-## 4. Split temporal (no random, no k-fold ingenuo)
-
+## 4. Split temporal (no random)
 **Periodo**: 2023-01-01 → 2024-02-29 (~14 meses).
 
 **Decisión**:
@@ -46,9 +45,7 @@ Documento de decisiones tomadas durante el challenge. Cada entrada incluye **opc
 - **Val**: 2023-10-01 → 2023-11-30 (incluye Buen Fin para que el tuning vea el evento de mayor estrés).
 - **Test**: 2023-12-01 → 2024-02-29 (Navidad + post-temporada; condiciones diversas).
 
-**Por qué no random split**: en series temporales, random split filtra futuro al pasado vía vecindad temporal y vía correlaciones cross-entity. Sería un error fatal para un challenge senior.
-
-**CV interna**: walk-forward 3 folds × 28 días dentro del train para tuning (`splits.walk_forward_folds`).
+**Por qué no random split**: en series temporales, random split filtra futuro al pasado vía vecindad temporal y vía correlaciones cross-entity.
 
 ---
 
