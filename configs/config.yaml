@@ -1,0 +1,56 @@
+# Project configuration.
+# Paths are relative to repo root. Edit splits with care: they encode the
+# anti-leakage validation strategy described in DECISIONS.md.
+
+seed: 42
+
+paths:
+  raw_dir: data/raw
+  interim_dir: data/interim
+  processed_dir: data/processed
+  reports_dir: reports
+  figures_dir: reports/figures
+  models_dir: models
+  mlflow_uri: file:./mlruns
+
+data:
+  transactions_file: transactions.csv
+  stores_file: stores.csv
+  calendar_file: calendar.csv
+  categories:
+    - Abarrotes
+    - Bebidas
+    - Cuidado_Personal
+    - Hogar
+    - Electronica
+    - Ropa
+
+# Time-based splits. Validation includes Buen Fin (tuning); test includes
+# Navidad + post-temporada (held-out evaluation).
+splits:
+  train_start: "2023-01-01"
+  train_end:   "2023-09-30"
+  val_start:   "2023-10-01"
+  val_end:     "2023-11-30"
+  test_start:  "2023-12-01"
+  test_end:    "2024-02-29"
+
+targets:
+  demand_primary: total_transactions
+  cash_primary: amount_cash
+
+# Columns that must NEVER enter the feature set as same-day predictors.
+# See DECISIONS.md (Leakage). Cleared at feature-build time.
+leakage_blocklist:
+  - replenishment_signal       # internal signal computed from observed demand
+  - cash_transactions          # same-day target component for cash
+  - amount_cash                # same-day cash target
+  - amount_card                # complement of amount_cash same-day
+  - card_transactions          # complement of cash_transactions same-day
+  - amount_total               # contains amount_cash + amount_card same-day
+  - units_sold                 # same-day demand outcome
+  - avg_ticket                 # derived from same-day totals
+
+cash:
+  buffer_quantile: 0.90        # P90 of absolute residuals on validation
+  aggregation: store_day       # cash is forecast at store-day level (sum categories)
