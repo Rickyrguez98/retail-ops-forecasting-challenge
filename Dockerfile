@@ -18,11 +18,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ── Stage 3: app ───────────────────────────────────────────────────────────────
 FROM deps AS app
 
-# Copy source, configs, data, and scripts (not mlruns / models / interim)
+# Copy source, configs, data, scripts, tests (not mlruns / models / interim)
 COPY src/           src/
 COPY scripts/       scripts/
 COPY configs/       configs/
 COPY data/raw/      data/raw/
+COPY tests/         tests/
 COPY Makefile       Makefile
 COPY pyproject.toml pyproject.toml
 
