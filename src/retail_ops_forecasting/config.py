@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 import yaml
 
@@ -32,7 +31,7 @@ class DataCfg:
     transactions_file: str
     stores_file: str
     calendar_file: str
-    categories: List[str]
+    categories: list[str]
 
 
 @dataclass(frozen=True)
@@ -61,14 +60,14 @@ class CashCfg:
 class EventUpliftCfg:
     enabled: bool = True
     # Buen Fin
-    buen_fin_peak_multiplier: Optional[float] = None  # None = learn from val
-    buen_fin_pre_multiplier: float = 1.10   # ~10% short on pre-event days
-    buen_fin_post_multiplier: float = 1.0   # model recovers after event
+    buen_fin_peak_multiplier: float | None = None  # None = learn from val
+    buen_fin_pre_multiplier: float = 1.10  # ~10% short on pre-event days
+    buen_fin_post_multiplier: float = 1.0  # model recovers after event
     buen_fin_window_pre: int = 3
     buen_fin_window_post: int = 0
     # Dec 24-25
     dec_24_25_anchor_month: int = 12
-    dec_24_25_anchor_days: List[int] = field(default_factory=lambda: [24, 25])
+    dec_24_25_anchor_days: list[int] = field(default_factory=lambda: [24, 25])
     dec_24_25_peak_multiplier: float = 2.8
     dec_24_25_pre_multiplier: float = 1.13  # ~13% short on Dec 22-23
     dec_24_25_post_multiplier: float = 1.0  # model accurate Dec 26+
@@ -76,10 +75,10 @@ class EventUpliftCfg:
     dec_24_25_window_post: int = 0
     # Dec 31
     dec_31_anchor_month: int = 12
-    dec_31_anchor_days: List[int] = field(default_factory=lambda: [31])
+    dec_31_anchor_days: list[int] = field(default_factory=lambda: [31])
     dec_31_peak_multiplier: float = 1.8
-    dec_31_pre_multiplier: float = 1.03    # Dec 29-30 nearly accurate
-    dec_31_post_multiplier: float = 1.0    # Jan 1+ model over-predicts
+    dec_31_pre_multiplier: float = 1.03  # Dec 29-30 nearly accurate
+    dec_31_post_multiplier: float = 1.0  # Jan 1+ model over-predicts
     dec_31_window_pre: int = 2
     dec_31_window_post: int = 0
 
@@ -91,7 +90,7 @@ class Config:
     data: DataCfg
     splits: SplitsCfg
     targets: TargetsCfg
-    leakage_blocklist: List[str]
+    leakage_blocklist: list[str]
     cash: CashCfg
     event_uplift: EventUpliftCfg = field(default_factory=EventUpliftCfg)
     _raw: dict = field(default_factory=dict)
@@ -104,7 +103,7 @@ def _resolve(p: str) -> Path:
 
 def load_config(path: str | Path = "configs/config.yaml") -> Config:
     path = _resolve(str(path))
-    with open(path, "r") as f:
+    with open(path) as f:
         raw = yaml.safe_load(f)
     paths = Paths(
         raw_dir=_resolve(raw["paths"]["raw_dir"]),
@@ -117,9 +116,9 @@ def load_config(path: str | Path = "configs/config.yaml") -> Config:
     )
     # Parse event_uplift section (optional — falls back to dataclass defaults)
     eu_raw = raw.get("event_uplift", {})
-    bf  = eu_raw.get("buen_fin",  {})
+    bf = eu_raw.get("buen_fin", {})
     d25 = eu_raw.get("dec_24_25", {})
-    d31 = eu_raw.get("dec_31",    {})
+    d31 = eu_raw.get("dec_31", {})
     event_uplift = EventUpliftCfg(
         enabled=eu_raw.get("enabled", True),
         buen_fin_peak_multiplier=bf.get("peak_multiplier"),
@@ -157,5 +156,5 @@ def load_config(path: str | Path = "configs/config.yaml") -> Config:
 
 def load_model_config(path: str | Path = "configs/model_config.yaml") -> dict:
     path = _resolve(str(path))
-    with open(path, "r") as f:
+    with open(path) as f:
         return yaml.safe_load(f)

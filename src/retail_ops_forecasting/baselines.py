@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 
@@ -36,7 +35,11 @@ def historical_dow_mean(
 ) -> pd.DataFrame:
     """Returns a lookup table: (entity..., day_of_week) -> mean(target)."""
     keys = list(entity_cols) + ["day_of_week"]
-    return train_df.groupby(keys, as_index=False)[target].mean().rename(columns={target: f"hist_dow_{target}"})
+    return (
+        train_df.groupby(keys, as_index=False)[target]
+        .mean()
+        .rename(columns={target: f"hist_dow_{target}"})
+    )
 
 
 def apply_historical_dow_mean(

@@ -8,8 +8,8 @@ stays in the caller.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 @dataclass
 class FitResult:
     model: HistGradientBoostingRegressor
-    feature_cols: List[str]
+    feature_cols: list[str]
 
 
 def fit_hgb(
@@ -29,7 +29,11 @@ def fit_hgb(
     params: dict,
 ) -> FitResult:
     feature_cols = list(feature_cols)
-    X = train_df[feature_cols].to_numpy(dtype=np.float32, copy=False, na_value=np.nan) if hasattr(pd.DataFrame, "to_numpy") else train_df[feature_cols].values
+    X = (
+        train_df[feature_cols].to_numpy(dtype=np.float32, copy=False, na_value=np.nan)
+        if hasattr(pd.DataFrame, "to_numpy")
+        else train_df[feature_cols].values
+    )
     # to_numpy doesn't support na_value before pandas 2.0; do it manually
     X = train_df[feature_cols].astype(np.float32).values
     y = train_df[target_col].astype(np.float32).values
@@ -44,7 +48,10 @@ def predict(fit: FitResult, df: pd.DataFrame) -> np.ndarray:
 
 
 def assemble_predictions(
-    df: pd.DataFrame, y_true_col: str, y_pred: np.ndarray, id_cols: Tuple[str, ...] = ("store_id", "category", "date")
+    df: pd.DataFrame,
+    y_true_col: str,
+    y_pred: np.ndarray,
+    id_cols: tuple[str, ...] = ("store_id", "category", "date"),
 ) -> pd.DataFrame:
     out = df[list(id_cols) + [y_true_col]].copy()
     out["y_pred"] = y_pred

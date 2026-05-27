@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -38,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+
 def _expand_window(
     anchor_dates: list[pd.Timestamp],
     peak_mult: float,
@@ -45,7 +45,7 @@ def _expand_window(
     post_mult: float,
     window_pre: int,
     window_post: int,
-) -> Dict[pd.Timestamp, float]:
+) -> dict[pd.Timestamp, float]:
     """Build {date: multiplier} using separate flat rates for pre/peak/post.
 
     For dates inside two overlapping windows, the max multiplier wins
@@ -61,10 +61,10 @@ def _expand_window(
     if not anchor_dates:
         return {}
 
-    result: Dict[pd.Timestamp, float] = {}
+    result: dict[pd.Timestamp, float] = {}
     anchor_set = set(anchor_dates)
     first_anchor = min(anchor_dates)
-    last_anchor  = max(anchor_dates)
+    last_anchor = max(anchor_dates)
 
     # Anchor days
     for anchor in anchor_dates:
@@ -88,6 +88,7 @@ def _expand_window(
 
 
 # ── public API ────────────────────────────────────────────────────────────────
+
 
 def learn_buen_fin_multiplier(
     val_df: pd.DataFrame,
@@ -122,10 +123,10 @@ def learn_buen_fin_multiplier(
 def build_uplift_map(
     calendar_df: pd.DataFrame,
     cfg,
-    val_df: Optional[pd.DataFrame] = None,
-    target_col: Optional[str] = None,
+    val_df: pd.DataFrame | None = None,
+    target_col: str | None = None,
     pred_col: str = "y_pred",
-) -> Dict[pd.Timestamp, float]:
+) -> dict[pd.Timestamp, float]:
     """Build a {date → multiplier} map for all configured event windows.
 
     Parameters
@@ -146,19 +147,18 @@ def build_uplift_map(
         logger.info("Event uplift disabled — returning empty map")
         return {}
 
-    uplift_map: Dict[pd.Timestamp, float] = {}
+    uplift_map: dict[pd.Timestamp, float] = {}
 
     # ── 1. Buen Fin ──────────────────────────────────────────────────────────
-    bf_dates = sorted(
-        calendar_df[calendar_df["is_buen_fin"].fillna(False)]["date"].tolist()
-    )
+    bf_dates = sorted(calendar_df[calendar_df["is_buen_fin"].fillna(False)]["date"].tolist())
     if bf_dates:
         if eu.buen_fin_peak_multiplier is None and val_df is not None and target_col:
             bf_mult = learn_buen_fin_multiplier(val_df, target_col, pred_col, bf_dates)
         else:
             bf_mult = eu.buen_fin_peak_multiplier or 2.9
         window = _expand_window(
-            bf_dates, bf_mult,
+            bf_dates,
+            bf_mult,
             pre_mult=eu.buen_fin_pre_multiplier,
             post_mult=eu.buen_fin_post_multiplier,
             window_pre=eu.buen_fin_window_pre,
@@ -168,8 +168,11 @@ def build_uplift_map(
             uplift_map[d] = max(uplift_map.get(d, 1.0), m)
         logger.info(
             "Buen Fin uplift: peak=%.2fx pre=%.2fx over %d dates (pre=%d post=%d days)",
-            bf_mult, eu.buen_fin_pre_multiplier, len(window),
-            eu.buen_fin_window_pre, eu.buen_fin_window_post,
+            bf_mult,
+            eu.buen_fin_pre_multiplier,
+            len(window),
+            eu.buen_fin_window_pre,
+            eu.buen_fin_window_post,
         )
 
     # ── 2. Dec 24-25 ─────────────────────────────────────────────────────────
@@ -182,7 +185,8 @@ def build_uplift_map(
     ]
     if dec_anchors:
         window = _expand_window(
-            dec_anchors, eu.dec_24_25_peak_multiplier,
+            dec_anchors,
+            eu.dec_24_25_peak_multiplier,
             pre_mult=eu.dec_24_25_pre_multiplier,
             post_mult=eu.dec_24_25_post_multiplier,
             window_pre=eu.dec_24_25_window_pre,
@@ -192,7 +196,9 @@ def build_uplift_map(
             uplift_map[d] = max(uplift_map.get(d, 1.0), m)
         logger.info(
             "Dec 24-25 uplift: peak=%.2fx pre=%.2fx over %d dates",
-            eu.dec_24_25_peak_multiplier, eu.dec_24_25_pre_multiplier, len(window),
+            eu.dec_24_25_peak_multiplier,
+            eu.dec_24_25_pre_multiplier,
+            len(window),
         )
 
     # ── 3. Dec 31 ────────────────────────────────────────────────────────────
@@ -204,7 +210,8 @@ def build_uplift_map(
     ]
     if dec31_anchors:
         window = _expand_window(
-            dec31_anchors, eu.dec_31_peak_multiplier,
+            dec31_anchors,
+            eu.dec_31_peak_multiplier,
             pre_mult=eu.dec_31_pre_multiplier,
             post_mult=eu.dec_31_post_multiplier,
             window_pre=eu.dec_31_window_pre,
@@ -214,7 +221,9 @@ def build_uplift_map(
             uplift_map[d] = max(uplift_map.get(d, 1.0), m)
         logger.info(
             "Dec 31 uplift: peak=%.2fx pre=%.2fx over %d dates",
-            eu.dec_31_peak_multiplier, eu.dec_31_pre_multiplier, len(window),
+            eu.dec_31_peak_multiplier,
+            eu.dec_31_pre_multiplier,
+            len(window),
         )
 
     logger.info("Total event uplift dates in map: %d", len(uplift_map))
@@ -224,7 +233,7 @@ def build_uplift_map(
 def apply_uplift(
     preds_df: pd.DataFrame,
     pred_col: str,
-    uplift_map: Dict[pd.Timestamp, float],
+    uplift_map: dict[pd.Timestamp, float],
 ) -> pd.DataFrame:
     """Apply event-window uplift to a predictions DataFrame.
 
@@ -238,8 +247,6 @@ def apply_uplift(
     mult_series = df["date"].map(lambda d: uplift_map.get(pd.Timestamp(d), 1.0))
     adjusted = df[pred_col] * mult_series
     n_affected = int((mult_series > 1.0).sum())
-    logger.info(
-        "Event uplift applied to %d rows (pred_col='%s')", n_affected, pred_col
-    )
+    logger.info("Event uplift applied to %d rows (pred_col='%s')", n_affected, pred_col)
     df[pred_col] = adjusted.clip(lower=0.0)
     return df

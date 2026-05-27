@@ -7,8 +7,6 @@ markdown summary.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
-
 import pandas as pd
 
 EXPECTED_TX_COLS = {
@@ -56,7 +54,7 @@ EXPECTED_CAL_COLS = {
     "is_event",  # derived in loader, kept here so the schema check ignores it
 }
 
-CheckResult = Tuple[str, str]  # (status, detail)
+CheckResult = tuple[str, str]  # (status, detail)
 
 
 def _ok(detail: str) -> CheckResult:
@@ -137,18 +135,25 @@ def check_replenishment_leakage_flag(tx: pd.DataFrame) -> CheckResult:
         return _warn("no rows to evaluate replenishment signal correlation")
     a = sub["replenishment_signal"].astype("float64").to_numpy()
     b = sub["total_transactions"].astype("float64").to_numpy()
-    corr = float(((a - a.mean()) * (b - b.mean())).sum() / (((a - a.mean()) ** 2).sum() ** 0.5 * ((b - b.mean()) ** 2).sum() ** 0.5))
+    corr = float(
+        ((a - a.mean()) * (b - b.mean())).sum()
+        / (((a - a.mean()) ** 2).sum() ** 0.5 * ((b - b.mean()) ** 2).sum() ** 0.5)
+    )
     return _warn(
         f"replenishment_signal vs total_transactions corr={corr:.3f} — excluded from features"
     )
 
 
-def run_all_checks(tx: pd.DataFrame, stores: pd.DataFrame, cal: pd.DataFrame) -> Dict[str, CheckResult]:
-    checks: Dict[str, CheckResult] = {}
+def run_all_checks(
+    tx: pd.DataFrame, stores: pd.DataFrame, cal: pd.DataFrame
+) -> dict[str, CheckResult]:
+    checks: dict[str, CheckResult] = {}
     checks["schema_transactions"] = check_schema(tx, EXPECTED_TX_COLS, "transactions")
     checks["schema_stores"] = check_schema(stores, EXPECTED_STORE_COLS, "stores")
     checks["schema_calendar"] = check_schema(cal, EXPECTED_CAL_COLS, "calendar")
-    checks["unique_tx_key"] = check_unique_keys(tx, ["date", "store_id", "category"], "transactions")
+    checks["unique_tx_key"] = check_unique_keys(
+        tx, ["date", "store_id", "category"], "transactions"
+    )
     checks["unique_stores"] = check_unique_keys(stores, ["store_id"], "stores")
     checks["unique_calendar"] = check_unique_keys(cal, ["date"], "calendar")
     checks["calendar_continuity"] = check_date_continuity(cal, "calendar")
@@ -159,7 +164,7 @@ def run_all_checks(tx: pd.DataFrame, stores: pd.DataFrame, cal: pd.DataFrame) ->
     return checks
 
 
-def format_report(checks: Dict[str, CheckResult], missing: pd.DataFrame) -> str:
+def format_report(checks: dict[str, CheckResult], missing: pd.DataFrame) -> str:
     lines = ["# Data Quality Report", ""]
     lines.append("## Schema and integrity checks")
     lines.append("")

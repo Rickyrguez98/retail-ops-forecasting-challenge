@@ -32,6 +32,9 @@ extend-exclude = ["notebooks", "mlruns"]
 select = ["E", "F", "I", "B", "UP", "SIM"]
 ignore = ["E501"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["retail_ops_forecasting"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

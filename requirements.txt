@@ -15,3 +15,9 @@ pyarrow>=10.0
 lightgbm>=4.0.0
 optuna>=3.4.0
 
+# Lint / format tooling (used by `make lint` and by .github/workflows/ci.yml).
+# Pinned so CI is deterministic and matches local pre-commit.
+black==24.4.2
+isort==5.13.2
+ruff==0.5.0
+

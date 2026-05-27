@@ -29,7 +29,11 @@ def test_lag_features_do_not_use_same_day_target(toy_transactions, toy_calendar,
     df = _toy(toy_transactions, toy_calendar, toy_stores)
     feats = build_demand_features(df, target_col="total_transactions")
     # For each (store, category) the first 28 rows of lag_28 must be NaN
-    sample = feats.sort_values(["store_id", "category", "date"]).groupby(["store_id", "category"]).head(1)
+    sample = (
+        feats.sort_values(["store_id", "category", "date"])
+        .groupby(["store_id", "category"])
+        .head(1)
+    )
     assert sample["lag_1"].isna().all()
     assert sample["lag_7"].isna().all()
     assert sample["lag_28"].isna().all()
@@ -42,7 +46,9 @@ def test_rolling_mean_uses_only_past(toy_transactions, toy_calendar, toy_stores)
     df = _toy(toy_transactions, toy_calendar, toy_stores)
     feats = build_demand_features(df, target_col="total_transactions")
     # Manual check on a single series
-    sub = feats[(feats["store_id"] == "STR_001") & (feats["category"] == "Abarrotes")].sort_values("date")
+    sub = feats[(feats["store_id"] == "STR_001") & (feats["category"] == "Abarrotes")].sort_values(
+        "date"
+    )
     target = sub["total_transactions"].values
     rmean_7 = sub["rmean_7"].values
     # rmean_7[i] should equal mean(target[max(0, i-7):i])  (note: i excluded)
@@ -65,7 +71,9 @@ def test_select_feature_columns_drops_blocklist(toy_transactions, toy_calendar, 
         "units_sold",
         "avg_ticket",
     ]
-    cols = select_feature_columns(feats, target_col="total_transactions", leakage_blocklist=blocklist)
+    cols = select_feature_columns(
+        feats, target_col="total_transactions", leakage_blocklist=blocklist
+    )
     for b in blocklist:
         assert b not in cols, f"{b} leaked into feature columns"
     assert "total_transactions" not in cols

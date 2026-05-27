@@ -25,9 +25,14 @@ from retail_ops_forecasting.data import load_calendar  # noqa: E402
 from retail_ops_forecasting.event_uplift import apply_uplift, build_uplift_map  # noqa: E402
 from retail_ops_forecasting.features import select_feature_columns  # noqa: E402
 from retail_ops_forecasting.metrics import summarize  # noqa: E402
-from retail_ops_forecasting.modeling import assemble_predictions, fit_hgb, predict  # noqa: E402
+from retail_ops_forecasting.modeling import fit_hgb, predict  # noqa: E402
 from retail_ops_forecasting.splits import time_based_split  # noqa: E402
-from retail_ops_forecasting.utils import ensure_dir, get_logger, set_seed, setup_logging  # noqa: E402
+from retail_ops_forecasting.utils import (  # noqa: E402
+    ensure_dir,
+    get_logger,
+    set_seed,
+    setup_logging,
+)
 
 
 def _read_processed(p: Path) -> pd.DataFrame:
@@ -58,7 +63,12 @@ def main() -> int:
     df["__baseline_rmean28"] = rolling_mean_lag(df, target, window=28, entity_cols=entity)
 
     splits = time_based_split(df, cfg.splits)
-    log.info("Split sizes: train=%d, val=%d, test=%d", len(splits.train), len(splits.val), len(splits.test))
+    log.info(
+        "Split sizes: train=%d, val=%d, test=%d",
+        len(splits.train),
+        len(splits.val),
+        len(splits.test),
+    )
 
     train_df = df.loc[splits.train].dropna(subset=[target])
     val_df = df.loc[splits.val].dropna(subset=[target])
@@ -76,8 +86,14 @@ def main() -> int:
         tracking.log_params({"model": "seasonal_naive_lag7"})
         tracking.log_metrics({f"val_{k}": v for k, v in m_val.items() if isinstance(v, float)})
         tracking.log_metrics({f"test_{k}": v for k, v in m_test.items() if isinstance(v, float)})
-        log.info("baseline_lag7 val: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()})
-        log.info("baseline_lag7 test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()})
+        log.info(
+            "baseline_lag7 val: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()},
+        )
+        log.info(
+            "baseline_lag7 test: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()},
+        )
         metrics_summary["baseline_naive_lag7"] = {"val": m_val, "test": m_test}
 
     # 2. rolling mean 28
@@ -105,7 +121,10 @@ def main() -> int:
 
     # ---------- HGB model ----------
     feature_cols = select_feature_columns(
-        df, target_col=target, leakage_blocklist=cfg.leakage_blocklist, extra_drop=("__baseline_lag7", "__baseline_rmean28")
+        df,
+        target_col=target,
+        leakage_blocklist=cfg.leakage_blocklist,
+        extra_drop=("__baseline_lag7", "__baseline_rmean28"),
     )
     # HGB cannot accept NaN target; lag features carry many NaN early in series — those rows are dropped.
     train_fit = train_df.dropna(subset=["lag_28", "rmean_28"])
@@ -114,7 +133,9 @@ def main() -> int:
     # Load calendar for event-window uplift
     calendar_df = load_calendar(cfg.paths.raw_dir / cfg.data.calendar_file)
 
-    with tracking.start_run("hgb_demand_v1", tags={"family": "ml", "model": "HistGradientBoosting"}):
+    with tracking.start_run(
+        "hgb_demand_v1", tags={"family": "ml", "model": "HistGradientBoosting"}
+    ):
         params = dict(mcfg["demand"]["hgb"])
         fit = fit_hgb(train_fit, feature_cols=feature_cols, target_col=target, params=params)
         val_pred_raw = predict(fit, val_df)
@@ -141,30 +162,48 @@ def main() -> int:
             target_col=target,
             pred_col="y_pred",
         )
-        preds_val  = apply_uplift(preds_val,  "y_pred", uplift_map)
+        preds_val = apply_uplift(preds_val, "y_pred", uplift_map)
         preds_test = apply_uplift(preds_test, "y_pred", uplift_map)
 
         # ── Post-uplift metrics ───────────────────────────────────────────────
-        m_val  = summarize(preds_val[target],  preds_val["y_pred"])
+        m_val = summarize(preds_val[target], preds_val["y_pred"])
         m_test = summarize(preds_test[target], preds_test["y_pred"])
 
-        tracking.log_params({
-            "n_features": len(feature_cols),
-            "event_uplift_enabled": cfg.event_uplift.enabled,
-            "buen_fin_multiplier": uplift_map.get(
-                next(iter(d for d in uplift_map if d.month == 11), None), "n/a"
-            ),
-            **{f"hgb_{k}": v for k, v in params.items()},
-        })
+        tracking.log_params(
+            {
+                "n_features": len(feature_cols),
+                "event_uplift_enabled": cfg.event_uplift.enabled,
+                "buen_fin_multiplier": uplift_map.get(
+                    next(iter(d for d in uplift_map if d.month == 11), None), "n/a"
+                ),
+                **{f"hgb_{k}": v for k, v in params.items()},
+            }
+        )
         tracking.log_metrics({f"val_{k}": v for k, v in m_val.items() if isinstance(v, float)})
         tracking.log_metrics({f"test_{k}": v for k, v in m_test.items() if isinstance(v, float)})
-        tracking.log_metrics({f"val_base_{k}": v for k, v in m_val_base.items() if isinstance(v, float)})
-        tracking.log_metrics({f"test_base_{k}": v for k, v in m_test_base.items() if isinstance(v, float)})
+        tracking.log_metrics(
+            {f"val_base_{k}": v for k, v in m_val_base.items() if isinstance(v, float)}
+        )
+        tracking.log_metrics(
+            {f"test_base_{k}": v for k, v in m_test_base.items() if isinstance(v, float)}
+        )
 
-        log.info("hgb base  val:  %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val_base.items()})
-        log.info("hgb uplift val: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()})
-        log.info("hgb base  test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test_base.items()})
-        log.info("hgb uplift test:%s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()})
+        log.info(
+            "hgb base  val:  %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val_base.items()},
+        )
+        log.info(
+            "hgb uplift val: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()},
+        )
+        log.info(
+            "hgb base  test: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test_base.items()},
+        )
+        log.info(
+            "hgb uplift test:%s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()},
+        )
         metrics_summary["hgb_demand_v1"] = {"val": m_val, "test": m_test}
         metrics_summary["hgb_demand_v1_base"] = {"val": m_val_base, "test": m_test_base}
 
@@ -176,9 +215,9 @@ def main() -> int:
 
         # Persist predictions (post-uplift) for downstream evaluation
         if cat_col == "category_name":
-            preds_val  = preds_val.rename(columns={"category_name": "category"})
+            preds_val = preds_val.rename(columns={"category_name": "category"})
             preds_test = preds_test.rename(columns={"category_name": "category"})
-        val_preds_path  = cfg.paths.processed_dir / "demand_predictions_val.csv"
+        val_preds_path = cfg.paths.processed_dir / "demand_predictions_val.csv"
         test_preds_path = cfg.paths.processed_dir / "demand_predictions_test.csv"
         preds_val.to_csv(val_preds_path, index=False)
         preds_test.to_csv(test_preds_path, index=False)
@@ -186,6 +225,7 @@ def main() -> int:
         # ── MLflow: Model Registry + Artifacts + Dataset lineage ─────────────
         try:
             from mlflow.models.signature import infer_signature
+
             example = train_fit[fit.feature_cols].head(3)
             signature = infer_signature(example, fit.model.predict(example))
         except Exception:
@@ -205,12 +245,15 @@ def main() -> int:
 
         # Dataset lineage: train / val / test
         raw_src = str(cfg.paths.processed_dir / "demand_features.parquet")
-        tracking.log_dataset(train_fit, name="demand_train", source=raw_src,
-                             context="training", targets=target)
-        tracking.log_dataset(val_df, name="demand_val", source=raw_src,
-                             context="validation", targets=target)
-        tracking.log_dataset(test_df, name="demand_test", source=raw_src,
-                             context="test", targets=target)
+        tracking.log_dataset(
+            train_fit, name="demand_train", source=raw_src, context="training", targets=target
+        )
+        tracking.log_dataset(
+            val_df, name="demand_val", source=raw_src, context="validation", targets=target
+        )
+        tracking.log_dataset(
+            test_df, name="demand_test", source=raw_src, context="test", targets=target
+        )
 
     # Summary JSON for the report
     out_summary = cfg.paths.reports_dir / "demand_experiment_summary.json"

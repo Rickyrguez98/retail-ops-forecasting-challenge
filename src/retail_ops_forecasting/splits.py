@@ -9,7 +9,6 @@ selection.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Tuple
 
 import pandas as pd
 
@@ -30,7 +29,11 @@ def time_based_split(df: pd.DataFrame, splits: SplitsCfg, date_col: str = "date"
     train_mask = (dates >= splits.train_start) & (dates <= splits.train_end)
     val_mask = (dates >= splits.val_start) & (dates <= splits.val_end)
     test_mask = (dates >= splits.test_start) & (dates <= splits.test_end)
-    if (train_mask & val_mask).any() or (val_mask & test_mask).any() or (train_mask & test_mask).any():
+    if (
+        (train_mask & val_mask).any()
+        or (val_mask & test_mask).any()
+        or (train_mask & test_mask).any()
+    ):
         raise ValueError("train/val/test windows overlap in config")
     return SplitIndex(
         train=df.index[train_mask],
@@ -46,7 +49,7 @@ def walk_forward_folds(
     fold_days: int = 28,
     gap_days: int = 0,
     date_col: str = "date",
-) -> List[Tuple[pd.Index, pd.Index]]:
+) -> list[tuple[pd.Index, pd.Index]]:
     """Expanding-window CV folds inside the train window.
 
     Each fold: train = [start, fold_val_start - gap), val = [fold_val_start, fold_val_start + fold_days].
@@ -54,7 +57,7 @@ def walk_forward_folds(
     """
     dates = pd.to_datetime(df[date_col])
     train_end_ts = pd.Timestamp(train_end)
-    folds: List[Tuple[pd.Index, pd.Index]] = []
+    folds: list[tuple[pd.Index, pd.Index]] = []
     for i in range(n_folds):
         val_end = train_end_ts - pd.Timedelta(days=i * fold_days)
         val_start = val_end - pd.Timedelta(days=fold_days - 1)

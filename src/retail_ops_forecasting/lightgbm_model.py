@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 import lightgbm as lgb
 import numpy as np
@@ -35,9 +34,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LGBFit:
     """Trained LightGBM model + provenance for downstream prediction."""
+
     model: lgb.Booster
-    feature_cols: List[str]
-    best_params: Dict = field(default_factory=dict)
+    feature_cols: list[str]
+    best_params: dict = field(default_factory=dict)
     best_iteration: int = 0
     val_wape: float = 0.0
     n_trials: int = 0
@@ -45,7 +45,8 @@ class LGBFit:
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _base_params(seed: int = 42) -> Dict:
+
+def _base_params(seed: int = 42) -> dict:
     return {
         "objective": "regression",
         "metric": "rmse",
@@ -60,9 +61,9 @@ def _base_params(seed: int = 42) -> Dict:
 def _train_one(
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
-    feature_cols: List[str],
+    feature_cols: list[str],
     target_col: str,
-    params: Dict,
+    params: dict,
     num_boost_round: int = 2000,
     early_stopping_rounds: int = 50,
 ) -> tuple[lgb.Booster, float]:
@@ -91,12 +92,13 @@ def _train_one(
 
 # ── public API ────────────────────────────────────────────────────────────────
 
+
 def fit_lightgbm(
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
-    feature_cols: List[str],
+    feature_cols: list[str],
     target_col: str,
-    params: Optional[Dict] = None,
+    params: dict | None = None,
     seed: int = 42,
 ) -> LGBFit:
     """Fit a LightGBM model with given (or default) params + early stopping."""
@@ -122,11 +124,11 @@ def predict_lgb(fit: LGBFit, df: pd.DataFrame) -> np.ndarray:
 def tune_lightgbm_bayes(
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
-    feature_cols: List[str],
+    feature_cols: list[str],
     target_col: str,
     n_trials: int = 30,
     seed: int = 42,
-    timeout: Optional[int] = None,
+    timeout: int | None = None,
 ) -> LGBFit:
     """Bayesian hyperparameter search via Optuna TPE sampler.
 
@@ -153,15 +155,15 @@ def tune_lightgbm_bayes(
     def objective(trial: optuna.Trial) -> float:
         params = {
             **_base_params(seed),
-            "learning_rate":     trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-            "num_leaves":        trial.suggest_int("num_leaves", 15, 255),
-            "max_depth":         trial.suggest_int("max_depth", 4, 12),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
+            "num_leaves": trial.suggest_int("num_leaves", 15, 255),
+            "max_depth": trial.suggest_int("max_depth", 4, 12),
             "min_child_samples": trial.suggest_int("min_child_samples", 5, 100),
-            "reg_alpha":         trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
-            "reg_lambda":        trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
-            "subsample":         trial.suggest_float("subsample", 0.5, 1.0),
-            "subsample_freq":    1,
-            "colsample_bytree":  trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+            "subsample_freq": 1,
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
         }
         booster = lgb.train(
             params,

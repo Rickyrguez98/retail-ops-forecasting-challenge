@@ -47,7 +47,9 @@ def main() -> int:
 
     log.info("Aggregating cash store-day...")
     cs = cash_store_day(merged)
-    cs_pq = cfg.paths.interim_dir / ("cash_store_day.parquet" if merged_pq.suffix == ".parquet" else "cash_store_day.csv")
+    cs_pq = cfg.paths.interim_dir / (
+        "cash_store_day.parquet" if merged_pq.suffix == ".parquet" else "cash_store_day.csv"
+    )
     if cs_pq.suffix == ".parquet":
         cs.to_parquet(cs_pq, index=False)
     else:
@@ -57,7 +59,9 @@ def main() -> int:
     log.info("Building demand features...")
     demand = build_demand_features(merged, target_col=cfg.targets.demand_primary)
     demand = encode_categoricals(demand)
-    out = cfg.paths.processed_dir / ("demand_features.parquet" if merged_pq.suffix == ".parquet" else "demand_features.csv")
+    out = cfg.paths.processed_dir / (
+        "demand_features.parquet" if merged_pq.suffix == ".parquet" else "demand_features.csv"
+    )
     if out.suffix == ".parquet":
         demand.to_parquet(out, index=False)
     else:
@@ -67,7 +71,9 @@ def main() -> int:
     log.info("Building cash features...")
     cash_feat = build_cash_features(cs, target_col=cfg.targets.cash_primary)
     cash_feat = encode_categoricals(cash_feat)
-    out_cash = cfg.paths.processed_dir / ("cash_features.parquet" if merged_pq.suffix == ".parquet" else "cash_features.csv")
+    out_cash = cfg.paths.processed_dir / (
+        "cash_features.parquet" if merged_pq.suffix == ".parquet" else "cash_features.csv"
+    )
     if out_cash.suffix == ".parquet":
         cash_feat.to_parquet(out_cash, index=False)
     else:

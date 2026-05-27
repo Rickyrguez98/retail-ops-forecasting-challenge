@@ -21,8 +21,6 @@ import json
 import sys
 from pathlib import Path
 
-import joblib  # type: ignore
-import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,10 +31,7 @@ from retail_ops_forecasting.config import load_config  # noqa: E402
 from retail_ops_forecasting.data import load_calendar  # noqa: E402
 from retail_ops_forecasting.event_uplift import apply_uplift, build_uplift_map  # noqa: E402
 from retail_ops_forecasting.features import select_feature_columns  # noqa: E402
-from retail_ops_forecasting.lightgbm_model import (  # noqa: E402
-    predict_lgb,
-    tune_lightgbm_bayes,
-)
+from retail_ops_forecasting.lightgbm_model import predict_lgb, tune_lightgbm_bayes  # noqa: E402
 from retail_ops_forecasting.metrics import summarize  # noqa: E402
 from retail_ops_forecasting.splits import time_based_split  # noqa: E402
 from retail_ops_forecasting.utils import (  # noqa: E402
@@ -92,7 +87,9 @@ def main() -> int:
 
     log.info(
         "LightGBM training rows=%d, val rows=%d, features=%d",
-        len(train_fit), len(val_fit), len(feature_cols),
+        len(train_fit),
+        len(val_fit),
+        len(feature_cols),
     )
 
     # Calendar for event uplift
@@ -146,37 +143,63 @@ def main() -> int:
                 "tuner": "optuna_tpe",
                 "n_trials": fit.n_trials,
                 "best_iteration": fit.best_iteration,
-                **{f"lgb_{k}": v for k, v in fit.best_params.items()
-                   if k not in ("objective", "metric", "verbosity", "n_jobs", "force_col_wise")},
+                **{
+                    f"lgb_{k}": v
+                    for k, v in fit.best_params.items()
+                    if k not in ("objective", "metric", "verbosity", "n_jobs", "force_col_wise")
+                },
             }
         )
         tracking.log_metrics({f"val_{k}": v for k, v in m_val.items() if isinstance(v, float)})
         tracking.log_metrics({f"test_{k}": v for k, v in m_test.items() if isinstance(v, float)})
-        tracking.log_metrics({f"val_base_{k}": v for k, v in m_val_base.items() if isinstance(v, float)})
-        tracking.log_metrics({f"test_base_{k}": v for k, v in m_test_base.items() if isinstance(v, float)})
+        tracking.log_metrics(
+            {f"val_base_{k}": v for k, v in m_val_base.items() if isinstance(v, float)}
+        )
+        tracking.log_metrics(
+            {f"test_base_{k}": v for k, v in m_test_base.items() if isinstance(v, float)}
+        )
 
-        log.info("lgb base   val: %s",  {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val_base.items()})
-        log.info("lgb uplift val: %s",  {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()})
-        log.info("lgb base   test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test_base.items()})
-        log.info("lgb uplift test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()})
+        log.info(
+            "lgb base   val: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val_base.items()},
+        )
+        log.info(
+            "lgb uplift val: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()},
+        )
+        log.info(
+            "lgb base   test: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test_base.items()},
+        )
+        log.info(
+            "lgb uplift test: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()},
+        )
 
         # ── Persist artefacts ────────────────────────────────────────────────
         booster_path = cfg.paths.models_dir / "demand_lgb.txt"
         fit.model.save_model(str(booster_path), num_iteration=fit.best_iteration)
         meta_path = cfg.paths.models_dir / "demand_lgb_meta.json"
-        meta_path.write_text(json.dumps({
-            "feature_cols": fit.feature_cols,
-            "best_params": {k: (v if isinstance(v, (int, float, str, bool)) else str(v))
-                            for k, v in fit.best_params.items()},
-            "best_iteration": fit.best_iteration,
-            "n_trials": fit.n_trials,
-            "val_wape_optuna": fit.val_wape,
-        }, indent=2))
+        meta_path.write_text(
+            json.dumps(
+                {
+                    "feature_cols": fit.feature_cols,
+                    "best_params": {
+                        k: (v if isinstance(v, int | float | str | bool) else str(v))
+                        for k, v in fit.best_params.items()
+                    },
+                    "best_iteration": fit.best_iteration,
+                    "n_trials": fit.n_trials,
+                    "val_wape_optuna": fit.val_wape,
+                },
+                indent=2,
+            )
+        )
 
         if cat_col == "category_name":
             preds_val = preds_val.rename(columns={"category_name": "category"})
             preds_test = preds_test.rename(columns={"category_name": "category"})
-        val_preds_path  = cfg.paths.processed_dir / "demand_lgb_predictions_val.csv"
+        val_preds_path = cfg.paths.processed_dir / "demand_lgb_predictions_val.csv"
         test_preds_path = cfg.paths.processed_dir / "demand_lgb_predictions_test.csv"
         preds_val.to_csv(val_preds_path, index=False)
         preds_test.to_csv(test_preds_path, index=False)
@@ -184,6 +207,7 @@ def main() -> int:
         # ── MLflow: Model Registry + Artifacts + Dataset lineage ─────────────
         try:
             from mlflow.models.signature import infer_signature
+
             example = train_fit[fit.feature_cols].head(3)
             signature = infer_signature(example, predict_lgb(fit, train_fit.head(3)))
         except Exception:
@@ -202,12 +226,15 @@ def main() -> int:
         tracking.log_artifact(test_preds_path, artifact_path="predictions")
 
         raw_src = str(cfg.paths.processed_dir / "demand_features.parquet")
-        tracking.log_dataset(train_fit, name="demand_train", source=raw_src,
-                             context="training", targets=target)
-        tracking.log_dataset(val_fit, name="demand_val", source=raw_src,
-                             context="validation", targets=target)
-        tracking.log_dataset(test_df, name="demand_test", source=raw_src,
-                             context="test", targets=target)
+        tracking.log_dataset(
+            train_fit, name="demand_train", source=raw_src, context="training", targets=target
+        )
+        tracking.log_dataset(
+            val_fit, name="demand_val", source=raw_src, context="validation", targets=target
+        )
+        tracking.log_dataset(
+            test_df, name="demand_test", source=raw_src, context="test", targets=target
+        )
 
     # ── Append to demand experiment summary ──────────────────────────────────
     summary_path = cfg.paths.reports_dir / "demand_experiment_summary.json"

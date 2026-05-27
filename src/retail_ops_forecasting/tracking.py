@@ -19,7 +19,7 @@ import logging
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     import mlflow
@@ -31,7 +31,7 @@ except Exception:  # pragma: no cover - environment dependent
 
 logger = logging.getLogger(__name__)
 
-_SIDE_LOG: list[Dict[str, Any]] = []
+_SIDE_LOG: list[dict[str, Any]] = []
 
 
 def configure(uri: str, experiment: str) -> None:
@@ -41,7 +41,7 @@ def configure(uri: str, experiment: str) -> None:
 
 
 @contextmanager
-def start_run(run_name: str, tags: Optional[Dict[str, str]] = None):
+def start_run(run_name: str, tags: dict[str, str] | None = None):
     if _MLFLOW_OK:
         with mlflow.start_run(run_name=run_name, tags=tags or {}):
             yield
@@ -58,14 +58,14 @@ def start_run(run_name: str, tags: Optional[Dict[str, str]] = None):
         yield
 
 
-def log_params(params: Dict[str, Any]) -> None:
+def log_params(params: dict[str, Any]) -> None:
     if _MLFLOW_OK:
         mlflow.log_params({k: str(v) for k, v in params.items()})
     elif _SIDE_LOG:
         _SIDE_LOG[-1]["params"].update(params)
 
 
-def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
+def log_metrics(metrics: dict[str, float], step: int | None = None) -> None:
     clean = {k: float(v) for k, v in metrics.items() if v is not None and v == v}  # drop NaN
     if _MLFLOW_OK:
         mlflow.log_metrics(clean, step=step)
@@ -73,7 +73,7 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
         _SIDE_LOG[-1]["metrics"].update(clean)
 
 
-def log_artifact(local_path: str | Path, artifact_path: Optional[str] = None) -> None:
+def log_artifact(local_path: str | Path, artifact_path: str | None = None) -> None:
     """Attach any file (figure, CSV, JSON) to the active run."""
     if _MLFLOW_OK and Path(local_path).exists():
         mlflow.log_artifact(str(local_path), artifact_path=artifact_path)
@@ -84,7 +84,7 @@ def log_sklearn_model(
     name: str,
     input_example=None,
     signature=None,
-    registered_model_name: Optional[str] = None,
+    registered_model_name: str | None = None,
 ) -> None:
     """Log a sklearn-compatible model with optional registry registration.
 
@@ -98,9 +98,13 @@ def log_sklearn_model(
         kwargs = {"sk_model": model, "input_example": input_example, "signature": signature}
         # MLflow 3.x uses `name=`, MLflow 2.x uses `artifact_path=` — try both.
         try:
-            mlflow.sklearn.log_model(name=name, registered_model_name=registered_model_name, **kwargs)
+            mlflow.sklearn.log_model(
+                name=name, registered_model_name=registered_model_name, **kwargs
+            )
         except TypeError:
-            mlflow.sklearn.log_model(artifact_path=name, registered_model_name=registered_model_name, **kwargs)
+            mlflow.sklearn.log_model(
+                artifact_path=name, registered_model_name=registered_model_name, **kwargs
+            )
         logger.info("Logged sklearn model '%s' to MLflow", name)
     except Exception as e:  # pragma: no cover
         logger.warning("Failed to log sklearn model '%s': %s", name, e)
@@ -111,7 +115,7 @@ def log_lightgbm_model(
     name: str,
     input_example=None,
     signature=None,
-    registered_model_name: Optional[str] = None,
+    registered_model_name: str | None = None,
 ) -> None:
     """Log a LightGBM Booster and optionally register it."""
     if not _MLFLOW_OK:
@@ -121,9 +125,13 @@ def log_lightgbm_model(
 
         kwargs = {"lgb_model": booster, "input_example": input_example, "signature": signature}
         try:
-            mlflow.lightgbm.log_model(name=name, registered_model_name=registered_model_name, **kwargs)
+            mlflow.lightgbm.log_model(
+                name=name, registered_model_name=registered_model_name, **kwargs
+            )
         except TypeError:
-            mlflow.lightgbm.log_model(artifact_path=name, registered_model_name=registered_model_name, **kwargs)
+            mlflow.lightgbm.log_model(
+                artifact_path=name, registered_model_name=registered_model_name, **kwargs
+            )
         logger.info("Logged LightGBM model '%s' to MLflow", name)
     except Exception as e:  # pragma: no cover
         logger.warning("Failed to log LightGBM model '%s': %s", name, e)
@@ -134,7 +142,7 @@ def log_dataset(
     name: str,
     source: str,
     context: str = "training",
-    targets: Optional[str] = None,
+    targets: str | None = None,
 ) -> None:
     """Track dataset lineage for the active run.
 

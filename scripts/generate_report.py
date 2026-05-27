@@ -49,7 +49,7 @@ def main() -> int:
         for run, splits in summary.items():
             for split, m in splits.items():
                 row = {"run": run, "split": split}
-                row.update({k: v for k, v in m.items() if isinstance(v, (int, float))})
+                row.update({k: v for k, v in m.items() if isinstance(v, int | float)})
                 rows.append(row)
         sections.append("## Demand — runs")
         sections.append(_df_to_md(pd.DataFrame(rows)))
@@ -62,7 +62,7 @@ def main() -> int:
         for run, splits in summary.items():
             for split, m in splits.items():
                 row = {"run": run, "split": split}
-                row.update({k: v for k, v in m.items() if isinstance(v, (int, float))})
+                row.update({k: v for k, v in m.items() if isinstance(v, int | float)})
                 rows.append(row)
         sections.append("## Cash — runs")
         sections.append(_df_to_md(pd.DataFrame(rows)))

@@ -19,7 +19,7 @@ def setup_logging(path: str | Path = "configs/logging.yaml") -> None:
 
         p = REPO_ROOT / p
     if p.exists():
-        with open(p, "r") as f:
+        with open(p) as f:
             logging.config.dictConfig(yaml.safe_load(f))
     else:
         logging.basicConfig(level=logging.INFO)

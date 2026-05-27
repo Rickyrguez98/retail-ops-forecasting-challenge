@@ -1,4 +1,4 @@
-.PHONY: help install quality prepare train-demand train-demand-lgb train-cash evaluate report all test lint clean
+.PHONY: help install quality prepare train-demand train-demand-lgb train-cash evaluate report all test lint format clean
 
 PYTHON ?= python3
 N_TRIALS ?= 30
@@ -15,7 +15,8 @@ help:
 	@echo "  report             Generate reports/figures and summary tables"
 	@echo "  all                quality -> prepare -> train-demand -> train-demand-lgb -> train-cash -> evaluate -> report"
 	@echo "  test               Run pytest suite"
-	@echo "  lint               Run black/isort/ruff in check mode"
+	@echo "  lint               Run black/isort/ruff in check mode (CI mirrors this)"
+	@echo "  format             Apply black/isort/ruff --fix in place"
 	@echo "  clean              Remove generated artifacts (keeps raw data + reports)"
 
 install:
@@ -48,9 +49,14 @@ test:
 	$(PYTHON) -m pytest -ra
 
 lint:
-	@command -v black >/dev/null && black --check src tests scripts || echo "black not installed — skipping"
-	@command -v isort >/dev/null && isort --check src tests scripts || echo "isort not installed — skipping"
-	@command -v ruff  >/dev/null && ruff check src tests scripts   || echo "ruff not installed — skipping"
+	black --check src tests scripts
+	isort --check-only src tests scripts
+	ruff check src tests scripts
+
+format:
+	black src tests scripts
+	isort src tests scripts
+	ruff check --fix src tests scripts
 
 clean:
 	rm -rf data/interim/* data/processed/* models/* mlruns/* reports/figures/*.png

@@ -23,7 +23,17 @@ from retail_ops_forecasting.utils import ensure_dir, get_logger, setup_logging  
 
 
 def _attach_event_flag(df: pd.DataFrame, cal: pd.DataFrame) -> pd.DataFrame:
-    use = cal[["date", "is_buen_fin", "is_semana_santa", "is_navidad_season", "is_payday", "is_holiday", "is_weekend"]]
+    use = cal[
+        [
+            "date",
+            "is_buen_fin",
+            "is_semana_santa",
+            "is_navidad_season",
+            "is_payday",
+            "is_holiday",
+            "is_weekend",
+        ]
+    ]
     df = df.merge(use, on="date", how="left")
     df["event_label"] = "regular"
     for col, label in [
@@ -50,16 +60,25 @@ def main() -> int:
     tracking.configure(cfg.paths.mlflow_uri, "evaluation")
 
     # ---- Demand evaluation ----
-    demand_test = pd.read_csv(cfg.paths.processed_dir / "demand_predictions_test.csv", parse_dates=["date"])
+    demand_test = pd.read_csv(
+        cfg.paths.processed_dir / "demand_predictions_test.csv", parse_dates=["date"]
+    )
     target_d = cfg.targets.demand_primary
     demand_test = demand_test.rename(columns={target_d: "y_true"})
-    demand_test = demand_test.merge(stores[["store_id", "store_format", "region", "socioeconomic_level"]], on="store_id", how="left")
+    demand_test = demand_test.merge(
+        stores[["store_id", "store_format", "region", "socioeconomic_level"]],
+        on="store_id",
+        how="left",
+    )
     demand_test = _attach_event_flag(demand_test, cal)
 
     with tracking.start_run("evaluate_demand", tags={"task": "demand", "stage": "evaluation"}):
         s = write_overall(demand_test, cfg.paths.reports_dir / "demand_overall_test_metrics.csv")
-        log.info("Demand overall test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in s.items()})
-        tracking.log_metrics({f"test_{k}": v for k, v in s.items() if isinstance(v, (int, float))})
+        log.info(
+            "Demand overall test: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in s.items()},
+        )
+        tracking.log_metrics({f"test_{k}": v for k, v in s.items() if isinstance(v, int | float)})
         write_breakdowns(
             demand_test,
             cfg.paths.figures_dir,
@@ -72,27 +91,46 @@ def main() -> int:
             },
             prefix="demand",
         )
-        plot_actual_vs_pred(demand_test, cfg.paths.figures_dir / "demand_actual_vs_pred.png", "Demand forecast — test")
+        plot_actual_vs_pred(
+            demand_test,
+            cfg.paths.figures_dir / "demand_actual_vs_pred.png",
+            "Demand forecast — test",
+        )
         plot_residual_hist(demand_test, cfg.paths.figures_dir / "demand_residuals.png")
 
         # Log figures + breakdown CSVs to MLflow
-        for fname in ("demand_actual_vs_pred.png", "demand_residuals.png", "error_demand_by_category.png"):
+        for fname in (
+            "demand_actual_vs_pred.png",
+            "demand_residuals.png",
+            "error_demand_by_category.png",
+        ):
             tracking.log_artifact(cfg.paths.figures_dir / fname, artifact_path="figures")
         for csv in cfg.paths.reports_dir.glob("demand_metrics_by_*.csv"):
             tracking.log_artifact(csv, artifact_path="breakdowns")
-        tracking.log_artifact(cfg.paths.reports_dir / "demand_overall_test_metrics.csv", artifact_path="breakdowns")
+        tracking.log_artifact(
+            cfg.paths.reports_dir / "demand_overall_test_metrics.csv", artifact_path="breakdowns"
+        )
 
     # ---- Cash evaluation ----
-    cash_test = pd.read_csv(cfg.paths.processed_dir / "cash_predictions_test.csv", parse_dates=["date"])
+    cash_test = pd.read_csv(
+        cfg.paths.processed_dir / "cash_predictions_test.csv", parse_dates=["date"]
+    )
     target_c = cfg.targets.cash_primary
     cash_test = cash_test.rename(columns={target_c: "y_true"})
-    cash_test = cash_test.merge(stores[["store_id", "store_format", "region", "socioeconomic_level"]], on="store_id", how="left")
+    cash_test = cash_test.merge(
+        stores[["store_id", "store_format", "region", "socioeconomic_level"]],
+        on="store_id",
+        how="left",
+    )
     cash_test = _attach_event_flag(cash_test, cal)
 
     with tracking.start_run("evaluate_cash", tags={"task": "cash", "stage": "evaluation"}):
         s = write_overall(cash_test, cfg.paths.reports_dir / "cash_overall_test_metrics.csv")
-        log.info("Cash overall test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in s.items()})
-        tracking.log_metrics({f"test_{k}": v for k, v in s.items() if isinstance(v, (int, float))})
+        log.info(
+            "Cash overall test: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in s.items()},
+        )
+        tracking.log_metrics({f"test_{k}": v for k, v in s.items() if isinstance(v, int | float)})
         write_breakdowns(
             cash_test,
             cfg.paths.figures_dir,
@@ -104,14 +142,22 @@ def main() -> int:
             },
             prefix="cash",
         )
-        plot_actual_vs_pred(cash_test, cfg.paths.figures_dir / "cash_actual_vs_pred.png", "Cash forecast — test")
+        plot_actual_vs_pred(
+            cash_test, cfg.paths.figures_dir / "cash_actual_vs_pred.png", "Cash forecast — test"
+        )
         plot_residual_hist(cash_test, cfg.paths.figures_dir / "cash_residuals.png")
 
-        for fname in ("cash_actual_vs_pred.png", "cash_residuals.png", "cash_coverage_per_store.png"):
+        for fname in (
+            "cash_actual_vs_pred.png",
+            "cash_residuals.png",
+            "cash_coverage_per_store.png",
+        ):
             tracking.log_artifact(cfg.paths.figures_dir / fname, artifact_path="figures")
         for csv in cfg.paths.reports_dir.glob("cash_metrics_by_*.csv"):
             tracking.log_artifact(csv, artifact_path="breakdowns")
-        tracking.log_artifact(cfg.paths.reports_dir / "cash_overall_test_metrics.csv", artifact_path="breakdowns")
+        tracking.log_artifact(
+            cfg.paths.reports_dir / "cash_overall_test_metrics.csv", artifact_path="breakdowns"
+        )
 
     return 0
 

@@ -8,8 +8,8 @@ Two-stage workflow:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, List
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 @dataclass
 class CashFit:
     model: HistGradientBoostingRegressor
-    feature_cols: List[str]
+    feature_cols: list[str]
     buffers: pd.Series  # indexed by store_id, scalar per store
 
 
@@ -34,11 +34,15 @@ def fit_cash_model(
     return model
 
 
-def predict_cash(model: HistGradientBoostingRegressor, df: pd.DataFrame, feature_cols: List[str]) -> np.ndarray:
+def predict_cash(
+    model: HistGradientBoostingRegressor, df: pd.DataFrame, feature_cols: list[str]
+) -> np.ndarray:
     return np.clip(model.predict(df[feature_cols].astype(np.float32).values), a_min=0, a_max=None)
 
 
-def compute_buffers(val_df: pd.DataFrame, target_col: str, pred_col: str, quantile: float = 0.90) -> pd.Series:
+def compute_buffers(
+    val_df: pd.DataFrame, target_col: str, pred_col: str, quantile: float = 0.90
+) -> pd.Series:
     """Per-store quantile of absolute residuals on validation."""
     res = (val_df[target_col] - val_df[pred_col]).abs()
     out = (
@@ -50,9 +54,13 @@ def compute_buffers(val_df: pd.DataFrame, target_col: str, pred_col: str, quanti
     return out
 
 
-def recommend_cash(predictions: pd.DataFrame, buffers: pd.Series, pred_col: str = "y_pred") -> pd.DataFrame:
+def recommend_cash(
+    predictions: pd.DataFrame, buffers: pd.Series, pred_col: str = "y_pred"
+) -> pd.DataFrame:
     """Add a `recommended_cash` column = clipped prediction + per-store buffer."""
     out = predictions.copy()
-    out["buffer"] = out["store_id"].map(buffers).fillna(buffers.median() if not buffers.empty else 0.0)
+    out["buffer"] = (
+        out["store_id"].map(buffers).fillna(buffers.median() if not buffers.empty else 0.0)
+    )
     out["recommended_cash"] = out[pred_col].clip(lower=0) + out["buffer"]
     return out

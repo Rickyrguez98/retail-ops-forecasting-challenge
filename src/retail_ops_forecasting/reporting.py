@@ -7,7 +7,6 @@ predictions dataframe and write CSVs + figures to `reports/`.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Iterable
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -21,13 +20,15 @@ def _grouped(df: pd.DataFrame, group_cols: list[str], y_true: str, y_pred: str) 
     for keys, sub in df.groupby(grouper, dropna=False):
         if not isinstance(keys, tuple):
             keys = (keys,)
-        row = dict(zip(group_cols, keys))
+        row = dict(zip(group_cols, keys, strict=False))
         row.update(mt.summarize(sub[y_true], sub[y_pred]))
         rows.append(row)
     return pd.DataFrame(rows).sort_values(group_cols).reset_index(drop=True)
 
 
-def write_overall(df: pd.DataFrame, out_path: Path, y_true: str = "y_true", y_pred: str = "y_pred") -> dict:
+def write_overall(
+    df: pd.DataFrame, out_path: Path, y_true: str = "y_true", y_pred: str = "y_pred"
+) -> dict:
     summary = mt.summarize(df[y_true], df[y_pred])
     pd.DataFrame([summary]).to_csv(out_path, index=False)
     return summary
@@ -37,11 +38,11 @@ def write_breakdowns(
     df: pd.DataFrame,
     figures_dir: Path,
     reports_dir: Path,
-    groups: Dict[str, list[str]],
+    groups: dict[str, list[str]],
     y_true: str = "y_true",
     y_pred: str = "y_pred",
     prefix: str = "demand",
-) -> Dict[str, Path]:
+) -> dict[str, Path]:
     paths = {}
     for name, cols in groups.items():
         tbl = _grouped(df, cols, y_true, y_pred)

@@ -10,12 +10,19 @@ The `leakage_blocklist` from config is applied at the end as a safety net.
 
 from __future__ import annotations
 
-from typing import Iterable, List
+from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
 
-CAT_COL_DEFAULT = ("store_format", "region", "socioeconomic_level", "category", "season", "day_name")
+CAT_COL_DEFAULT = (
+    "store_format",
+    "region",
+    "socioeconomic_level",
+    "category",
+    "season",
+    "day_name",
+)
 
 
 def add_calendar_interactions(df: pd.DataFrame) -> pd.DataFrame:
@@ -25,9 +32,9 @@ def add_calendar_interactions(df: pd.DataFrame) -> pd.DataFrame:
     out["dow_cos"] = np.cos(2 * np.pi * out["day_of_week"] / 7)
     out["month_sin"] = np.sin(2 * np.pi * (out["month"] - 1) / 12)
     out["month_cos"] = np.cos(2 * np.pi * (out["month"] - 1) / 12)
-    out["is_payday_x_weekend"] = (
-        out["is_payday"].fillna(False).astype(int) * out["is_weekend"].fillna(False).astype(int)
-    )
+    out["is_payday_x_weekend"] = out["is_payday"].fillna(False).astype(int) * out[
+        "is_weekend"
+    ].fillna(False).astype(int)
     out["store_age_years"] = (out["year"] - out["opening_year"]).clip(lower=0)
     return out
 
@@ -36,7 +43,9 @@ def _group_lag(s: pd.Series, group: pd.Series, lag: int) -> pd.Series:
     return s.groupby(group).shift(lag)
 
 
-def _group_rolling_mean(s: pd.Series, group: pd.Series, window: int, min_periods: int = 1) -> pd.Series:
+def _group_rolling_mean(
+    s: pd.Series, group: pd.Series, window: int, min_periods: int = 1
+) -> pd.Series:
     return (
         s.groupby(group)
         .shift(1)  # critical: shift before rolling — no same-day leak
@@ -47,7 +56,9 @@ def _group_rolling_mean(s: pd.Series, group: pd.Series, window: int, min_periods
     )
 
 
-def _group_rolling_std(s: pd.Series, group: pd.Series, window: int, min_periods: int = 2) -> pd.Series:
+def _group_rolling_std(
+    s: pd.Series, group: pd.Series, window: int, min_periods: int = 2
+) -> pd.Series:
     return (
         s.groupby(group)
         .shift(1)
@@ -59,7 +70,9 @@ def _group_rolling_std(s: pd.Series, group: pd.Series, window: int, min_periods:
 
 
 def build_demand_features(
-    df: pd.DataFrame, target_col: str = "total_transactions", entity_cols: Iterable[str] = ("store_id", "category")
+    df: pd.DataFrame,
+    target_col: str = "total_transactions",
+    entity_cols: Iterable[str] = ("store_id", "category"),
 ) -> pd.DataFrame:
     """Build features for demand forecasting at store-category-day granularity.
 
@@ -113,8 +126,11 @@ def build_cash_features(
 
 
 def select_feature_columns(
-    df: pd.DataFrame, target_col: str, leakage_blocklist: Iterable[str], extra_drop: Iterable[str] = ()
-) -> List[str]:
+    df: pd.DataFrame,
+    target_col: str,
+    leakage_blocklist: Iterable[str],
+    extra_drop: Iterable[str] = (),
+) -> list[str]:
     """Return predictor columns, excluding identifiers, the target, and leakage cols."""
     base_drop = {
         target_col,
@@ -130,7 +146,9 @@ def select_feature_columns(
     return cols
 
 
-def encode_categoricals(df: pd.DataFrame, cat_cols: Iterable[str] = CAT_COL_DEFAULT) -> pd.DataFrame:
+def encode_categoricals(
+    df: pd.DataFrame, cat_cols: Iterable[str] = CAT_COL_DEFAULT
+) -> pd.DataFrame:
     """Map known categorical columns to integer codes, leaving unknowns as -1.
 
     Encode string categoricals here. Encoding is fit on the union of unique values

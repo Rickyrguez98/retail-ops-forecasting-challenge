@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from retail_ops_forecasting.validation import (
+    EXPECTED_TX_COLS,
     check_schema,
     check_unique_keys,
     check_value_ranges,
-    EXPECTED_TX_COLS,
 )
 
 
@@ -16,7 +16,9 @@ def test_schema_passes_on_toy(toy_transactions):
 
 
 def test_unique_keys(toy_transactions):
-    status, _ = check_unique_keys(toy_transactions, ["date", "store_id", "category"], "transactions")
+    status, _ = check_unique_keys(
+        toy_transactions, ["date", "store_id", "category"], "transactions"
+    )
     assert status == "OK"
 
 

@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import joblib  # type: ignore
-import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +23,12 @@ from retail_ops_forecasting.config import load_config, load_model_config  # noqa
 from retail_ops_forecasting.features import select_feature_columns  # noqa: E402
 from retail_ops_forecasting.metrics import coverage_at_threshold, summarize  # noqa: E402
 from retail_ops_forecasting.splits import time_based_split  # noqa: E402
-from retail_ops_forecasting.utils import ensure_dir, get_logger, set_seed, setup_logging  # noqa: E402
+from retail_ops_forecasting.utils import (  # noqa: E402
+    ensure_dir,
+    get_logger,
+    set_seed,
+    setup_logging,
+)
 
 
 def _read_processed(p: Path) -> pd.DataFrame:
@@ -76,21 +80,45 @@ def main() -> int:
 
         m_val = summarize(val_df[target], val_df["y_pred"])
         m_test = summarize(test_df[target], test_df["y_pred"])
-        tracking.log_params({"n_features": len(feature_cols), **{f"hgb_{k}": v for k, v in params.items()}})
+        tracking.log_params(
+            {"n_features": len(feature_cols), **{f"hgb_{k}": v for k, v in params.items()}}
+        )
         tracking.log_metrics({f"val_{k}": v for k, v in m_val.items() if isinstance(v, float)})
         tracking.log_metrics({f"test_{k}": v for k, v in m_test.items() if isinstance(v, float)})
-        log.info("cash val: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()})
-        log.info("cash test: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()})
+        log.info(
+            "cash val: %s", {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_val.items()}
+        )
+        log.info(
+            "cash test: %s",
+            {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in m_test.items()},
+        )
         metrics_summary["hgb_cash_v1"] = {"val": m_val, "test": m_test}
 
-        buffers = compute_buffers(val_df, target_col=target, pred_col="y_pred", quantile=cfg.cash.buffer_quantile)
+        buffers = compute_buffers(
+            val_df, target_col=target, pred_col="y_pred", quantile=cfg.cash.buffer_quantile
+        )
         recs_val = recommend_cash(val_df[["store_id", "date", target, "y_pred"]], buffers)
         recs_test = recommend_cash(test_df[["store_id", "date", target, "y_pred"]], buffers)
 
-        cov_val = coverage_at_threshold(recs_val[target], recs_val["recommended_cash"], threshold=1.0)
-        cov_test = coverage_at_threshold(recs_test[target], recs_test["recommended_cash"], threshold=1.0)
-        tracking.log_metrics({"val_coverage": cov_val, "test_coverage": cov_test, "buffer_quantile": cfg.cash.buffer_quantile})
-        log.info("Coverage P%d val=%.3f test=%.3f", int(cfg.cash.buffer_quantile * 100), cov_val, cov_test)
+        cov_val = coverage_at_threshold(
+            recs_val[target], recs_val["recommended_cash"], threshold=1.0
+        )
+        cov_test = coverage_at_threshold(
+            recs_test[target], recs_test["recommended_cash"], threshold=1.0
+        )
+        tracking.log_metrics(
+            {
+                "val_coverage": cov_val,
+                "test_coverage": cov_test,
+                "buffer_quantile": cfg.cash.buffer_quantile,
+            }
+        )
+        log.info(
+            "Coverage P%d val=%.3f test=%.3f",
+            int(cfg.cash.buffer_quantile * 100),
+            cov_val,
+            cov_test,
+        )
 
         model_path = cfg.paths.models_dir / "cash_hgb.joblib"
         joblib.dump({"model": model, "feature_cols": feature_cols, "buffers": buffers}, model_path)
@@ -105,6 +133,7 @@ def main() -> int:
         # ── MLflow: Model Registry + Artifacts + Dataset lineage ─────────────
         try:
             from mlflow.models.signature import infer_signature
+
             example = train_fit[feature_cols].head(3)
             signature = infer_signature(example, model.predict(example))
         except Exception:
@@ -123,12 +152,15 @@ def main() -> int:
         tracking.log_artifact(out_test, artifact_path="predictions")
 
         raw_src = str(cfg.paths.processed_dir / "cash_features.parquet")
-        tracking.log_dataset(train_fit, name="cash_train", source=raw_src,
-                             context="training", targets=target)
-        tracking.log_dataset(val_df, name="cash_val", source=raw_src,
-                             context="validation", targets=target)
-        tracking.log_dataset(test_df, name="cash_test", source=raw_src,
-                             context="test", targets=target)
+        tracking.log_dataset(
+            train_fit, name="cash_train", source=raw_src, context="training", targets=target
+        )
+        tracking.log_dataset(
+            val_df, name="cash_val", source=raw_src, context="validation", targets=target
+        )
+        tracking.log_dataset(
+            test_df, name="cash_test", source=raw_src, context="test", targets=target
+        )
 
     cfg.paths.reports_dir.joinpath("cash_experiment_summary.json").write_text(
         json.dumps(metrics_summary, indent=2, default=float)
