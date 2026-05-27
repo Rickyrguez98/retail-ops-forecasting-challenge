@@ -87,9 +87,9 @@ Resultado del Review Agent (Phase 8). Todos los items implementados 🟢.
 
 | Item | Status | Nota |
 |------|--------|------|
-| Conventional commits | 🟢 | `chore:`, `feat:`, `exp:`, `analysis:`, `docs:` |
-| Commits atómicos | 🟢 | 7 commits, cada uno con scope claro |
-| Mensajes de exp con métricas | 🟢 | E.g. `exp(demand): HGB v1 — WAPE val 26.2%` |
+| Conventional commits | 🟢 | `chore:`, `feat:`, `exp:`, `analysis:`, `fix:`, `docs:`, `ci:` |
+| Historial incremental | 🟢 | 60+ commits incrementales cubriendo data validation, features, modeling, MLflow, Docker, CI, reports y documentación |
+| Mensajes de exp con métricas | 🟢 | P. ej. `exp(demand): LightGBM tuned — WAPE test 0.247 (vs HGB 0.249, vs baseline 0.323)` |
 | No commits de secrets / artefactos grandes | 🟢 | `.gitignore` cubre `data/interim`, `data/processed`, `models`, `mlruns` |
 
 ## Modelado avanzado
