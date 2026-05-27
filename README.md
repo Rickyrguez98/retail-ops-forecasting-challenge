@@ -1,5 +1,7 @@
 # Retail Operations Forecasting — Walmart Senior DS Challenge
 
+[![CI](https://github.com/Rickyrguez98/retail-ops-forecasting-challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/Rickyrguez98/retail-ops-forecasting-challenge/actions/workflows/ci.yml)
+
 A Mexican retail chain (80 tiendas × 6 categorías, datos diarios 2023-01-01 → 2024-02-29) necesita
 planear **cuántos cajeros tener disponibles** y **cuánto efectivo cargar por sucursal**. Este repositorio resuelve esas
 dos decisiones con un mismo backbone de features temporales:
