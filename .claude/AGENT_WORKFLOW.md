@@ -1,4 +1,4 @@
-# Agent Workflow
+# Flujo de Trabajo por Agentes
 
 Este documento describe el patrón de "agentes especializados" usado durante
 el desarrollo. Los agentes no son procesos separados — son contratos mentales

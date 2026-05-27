@@ -1,6 +1,6 @@
-# Submission Summary — Walmart Senior DS Challenge
+# Resumen de la Entrega — Walmart Senior DS Challenge
 
-Guía rápida para el reviewer. Toda la profundidad técnica está en los documentos
+Guía rápida para el revisor. Toda la profundidad técnica está en los documentos
 listados abajo; este archivo es solo un mapa.
 
 ---
