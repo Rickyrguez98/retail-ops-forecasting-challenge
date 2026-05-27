@@ -7,9 +7,11 @@ Formato inspirado en [Google Model Cards](https://modelcards.withgoogle.com/abou
 | | |
 |--|--|
 | **Versión** | 0.1.0 |
-| **Tipo** | Histogram-based Gradient Boosting Regressor (`sklearn.ensemble.HistGradientBoostingRegressor`) |
+| **Modelo oficial elegido** | LightGBM tuneado con Optuna (TPE Bayesian, 30 trials) |
+| **Modelo fallback** | Histogram-based Gradient Boosting Regressor (`sklearn.ensemble.HistGradientBoostingRegressor`) |
+| **Capa post-hoc opcional** | *Event stress adjustment* (regla de negocio, ver §Métricas) |
 | **Entrenado por** | Candidate, Walmart Senior DS Challenge |
-| **Fecha** | 2026-05-25 |
+| **Fecha** | 2026-05-26 |
 | **Licencia** | Proprietary (uso interno del challenge) |
 | **Punto de contacto** | Repositorio del candidato |
 
@@ -34,22 +36,28 @@ Dos modelos hermanos comparten arquitectura y pipeline de features:
 - Optimización de denominaciones de efectivo (no hay datos de denominaciones).
 - Decisiones financieras o regulatorias.
 
-## Métricas de desempeño (test set, 2023-12-01 → 2024-02-29)
+## Métricas de desempeño (test holdout, 2023-12-01 → 2024-02-29)
 
-### Demand
+> **Política de reporte**: las métricas oficiales out-of-sample del modelo son las
+> **clean holdout** (sección A). La sección B reporta un **escenario operativo post-hoc**
+> con una capa de regla de negocio (*event stress adjustment*). Mezclar los dos números
+> en una sola tabla escondería de qué viene cada mejora.
 
-| Métrica | Mejor baseline | HGB base | HGB + uplift | **LightGBM + uplift** | Δ vs baseline |
-|---------|---------------:|---------:|-------------:|----------------------:|--------------:|
-| WAPE    | 0.323 (lag-7)  | 0.296    | **0.249**    | **0.247**             | **−7.6 pp** |
-| MAE     | 228.7          | 209.4    | 176.1        | **174.8**             | −53.9 tx/día |
-| RMSE    | 548.0          | 467.9    | 313.0        | **308.4**             | −239.6 (RMSE picos) |
-| sMAPE   | 0.287          | 0.277    | 0.255        | **0.254**             | −0.033 |
-| Bias    | −16.2          | −26.9    | −74.0        | −75.9                 | (uplift absorbe sub-forecast) |
+### A — Clean holdout (modelo oficial, sin ajuste post-hoc)
 
-WAPE val (incluye Buen Fin) — base **0.262**, **post-uplift 0.179** (HGB) / **0.178** (LightGBM).
-LightGBM tuneado con Optuna (30 trials TPE Bayesian opt) supera al HGB por 0.2 pp en test.
+#### Demand
 
-### Cash
+| Métrica | Mejor baseline | HGB base | **LightGBM tuneado** | Δ vs baseline |
+|---------|---------------:|---------:|---------------------:|--------------:|
+| WAPE    | 0.323 (lag-7)  | 0.296    | **0.293**            | **−3.0 pp** (−9.4 % rel.) |
+| MAE     | 228.7          | 209.4    | **207.7**            | −21.0 tx/día |
+| RMSE    | 548.0          | 467.9    | **462.4**            | −85.6 |
+| sMAPE   | 0.287          | 0.277    | **0.274**            | −0.013 |
+| Bias    | −16.2          | −26.9    | **−27.5**            | leve sub-forecast |
+
+WAPE val (incluye Buen Fin): HGB base **0.262**, LightGBM tuneado **0.258**.
+
+#### Cash
 
 | Métrica | Valor (test) |
 |---------|-------------:|
@@ -58,16 +66,36 @@ LightGBM tuneado con Optuna (30 trials TPE Bayesian opt) supera al HGB por 0.2 p
 | RMSE    | MXN 200,007 |
 | sMAPE   | 0.137 |
 | Bias    | +14,626 (under-forecast → buffer compensa) |
-| **Coverage P90 (recommended ≥ actual)** | **0.946** |
+| **Coverage P90 (recomendado ≥ actual)** | **0.946** |
 
-### Desempeño por segmento (test, post-uplift)
+### B — Escenario operativo post-hoc (con *event stress adjustment*)
+
+Capa de regla de negocio aplicada al modelo base: factor de Buen Fin aprendido del set
+de validación; factores Dic 24-25 y Dic 31 son defaults basados en estacionalidad
+publicada del retail mexicano. **NO calibrados contra test.** Antes de producción
+deben re-calibrarse con múltiples años previos de eventos comparables.
+
+| Modelo + capa post-hoc | WAPE val | WAPE test (escenario) | MAE test |
+|--------|---------:|---------------------:|---------:|
+| HGB + event stress adjustment | 0.179 | 0.249 | 176.1 |
+| LightGBM + event stress adjustment | 0.178 | **0.247** | **174.8** |
+
+> Estos números **no son** el desempeño out-of-sample oficial del modelo. Son el
+> resultado del modelo + una capa de regla de negocio aplicada a fechas conocidas
+> de estrés navideño.
+
+### Desempeño por segmento (escenario operativo §B)
+
+Los breakdowns por segmento se reportan sobre el escenario operativo (modelo base +
+capa post-hoc) porque representan el comportamiento del sistema en producción si
+se decidiera activar la capa.
 
 **Demand WAPE por evento:** payday **0.20**, weekend **0.23**, regular **0.25**, navidad **0.29**, holiday **0.39** (n=1,920, alta varianza).
-El event uplift redujo holiday de 0.65 → 0.39 (−26 pp) y weekend de 0.31 → 0.23 (−8 pp).
+La capa post-hoc redujo holiday de 0.65 → 0.39 (−26 pp) y weekend de 0.31 → 0.23 (−8 pp).
 
 **Demand WAPE por categoría:** Abarrotes **0.24**, Bebidas **0.24**, Cuidado_Personal **0.26**, Hogar **0.26**, Ropa **0.27**, Electronica **0.29** (categoría más pequeña, mayor relativo).
 
-**Demand WAPE por formato:** Bodega **0.24**, Supercenter **0.25**, Express **0.26** — muy parejo post-uplift.
+**Demand WAPE por formato:** Bodega **0.24**, Supercenter **0.25**, Express **0.26** — prácticamente parejo.
 
 **Cash WAPE por evento:** regular **0.11**, navidad **0.12**, payday **0.13**, weekend **0.19**, holiday **0.21**.
 
@@ -111,10 +139,10 @@ El test `test_select_feature_columns_drops_blocklist` verifica que ninguna entra
 ## Componentes implementados
 
 1. **Anti-leakage controls**: lag y rolling features con `shift(>=1)`, leakage blocklist en config, 3 tests críticos verifican el invariante.
-2. **Event-window uplift post-processor**: multiplicadores calibrados por evento (Buen Fin aprendido del val, Dic 24-25 y Dic 31 configurables) — corrige el sesgo de subestimación del modelo base en días pico.
-3. **Bayesian hyperparameter optimization** (Optuna TPE): 30 trials sobre 9 hiperparámetros de LightGBM para benchmark vs HGB.
+2. **Bayesian hyperparameter optimization** (Optuna TPE): 30 trials sobre 9 hiperparámetros de LightGBM. El modelo tuneado es la elección oficial; HGB queda como fallback con desempeño equivalente.
+3. ***Event stress adjustment* post-hoc** (opcional, off por default sería conservador): capa de regla de negocio sobre días pico navideños. Documentada como escenario operativo, **no como performance out-of-sample del modelo**. Antes de producción debe re-calibrarse con 2-3 años previos.
 4. **Forecast horizon T+1** con pipeline reproducible: `make all` regenera todos los artefactos en ~30s end-to-end.
-5. **Cash buffer P90 por tienda**: regla operativa transparente, supera el target de coverage 90% (resultado: 94.6%).
+5. **Cash buffer P90 por tienda**: regla operativa transparente, supera el target de coverage 90 % (resultado: 94.6 %).
 
 ## Consideraciones éticas y de equidad
 

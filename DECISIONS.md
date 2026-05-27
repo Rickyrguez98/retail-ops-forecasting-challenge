@@ -65,21 +65,57 @@ Documento de decisiones tomadas durante el challenge. Cada entrada incluye **opc
 
 ---
 
-## 6. Modelo: HistGradientBoostingRegressor + LightGBM benchmark
+## 6. Modelo: LightGBM tuneado (oficial) + HistGradientBoosting (fallback)
 
 **Opciones**: HistGradientBoosting (sklearn), LightGBM, XGBoost.
 
 **Criterio**:
-- **HGB como modelo principal**: sin dependencias externas, sklearn-native, reproducibilidad simple en CI, soporta early stopping.
-- **LightGBM como benchmark tuneado**: integrado con **Optuna Bayesian optimization** (TPE sampler) sobre 9 hiperparámetros (`learning_rate`, `num_leaves`, `max_depth`, `min_child_samples`, `reg_alpha`, `reg_lambda`, `subsample`, `colsample_bytree`, `subsample_freq`).
-- 30 trials de Optuna minimizan WAPE en val. La configuración ganadora se refit y se evalúa en test con el mismo pipeline de event uplift que HGB.
-- XGBoost descartado: peor manejo nativo de categoricals que LightGBM y no ofrece ventaja diferencial en este tamaño de datos.
+- **LightGBM tuneado como modelo oficial**: integrado con **Optuna Bayesian optimization** (TPE sampler) sobre 9 hiperparámetros (`learning_rate`, `num_leaves`, `max_depth`, `min_child_samples`, `reg_alpha`, `reg_lambda`, `subsample`, `colsample_bytree`, `subsample_freq`). 30 trials de Optuna minimizan WAPE en **val** (no en test). La configuración ganadora se re-entrena y se evalúa **una sola vez** en test.
+- **HGB como fallback**: sin dependencias externas, sklearn-native, reproducibilidad trivial en CI, soporta early stopping. Mantiene exactamente el mismo pipeline de features y validación. Permite operar el sistema si LightGBM falla por infraestructura.
+- **XGBoost descartado**: peor manejo nativo de categoricals que LightGBM y no ofrece ventaja diferencial en este tamaño de datos.
 
-**Resultado**: LightGBM tuneado supera a HGB por ~0.2 pp en test (WAPE 0.247 vs 0.249 post-uplift). Ambos modelos están integrados en el pipeline (`make train-demand-lgb`) y trackados separadamente en MLflow.
+**Resultado oficial (clean holdout, sin ajustes post-hoc)**: LightGBM tuneado **WAPE test = 0.293**, HGB base **WAPE test = 0.296**. La diferencia es chica pero consistente en todos los segmentos (categoría, formato, evento). Ambos modelos están registrados en MLflow Model Registry (`demand_lgb` y `demand_hgb`, v1 cada uno).
 
 ---
 
-## 7. Métrica primaria: WAPE
+## 7. Capa post-hoc: *event stress adjustment* como regla de negocio (no como modelo)
+
+**Decisión**: separar la capa de ajuste por eventos del modelo "oficial" y reportarla
+como **escenario operativo** en una tabla independiente, **nunca** como parte del
+desempeño out-of-sample del modelo.
+
+**Por qué existe esta capa**: el set de entrenamiento (2023-01 → 2023-09) contiene
+exactamente UNA ocurrencia de cada pico retail mexicano (Buen Fin, Navidad, Año Nuevo).
+Con n=1 histórico, ningún modelo de árbol puede extrapolar la magnitud del pico de
+manera confiable y sub-pronostica sistemáticamente esos días. La industria retail
+mexicana sabe **ex-ante** que la demanda y el cash se multiplican ~1.5×–3× en esas
+fechas (sector commentary de ANTAD/INEGI). La capa codifica ese conocimiento de
+negocio como regla, **no como aprendizaje del modelo sobre el test**.
+
+**Política de calibración**:
+
+| Evento | Cómo se setean los factores | ¿Válido para producción tal cual? |
+|--------|-----------------------------|-----------------------------------|
+| Buen Fin | Aprendido de **residuos de validación** (val incluye Buen Fin por diseño) | ✅ Legítimo (val-tuned) |
+| Dic 24-25 | **Default de regla de negocio** basado en estacionalidad publicada | ⚠️ Requiere re-calibración con 2-3 años previos antes de prod |
+| Dic 31 | **Default de regla de negocio** basado en estacionalidad publicada | ⚠️ Requiere re-calibración con 2-3 años previos antes de prod |
+
+**Por qué se reporta separado del modelo "oficial"**: si los factores Dic 24-25 / Dic 31
+se ajustaran contra los residuos del test set, sería **leakage metodológico** — el test
+holdout dejaría de ser holdout. Para evitar esa ambigüedad la capa se reporta como
+escenario operativo (tabla §4.1.B en `reports/final_report.md`) y nunca como desempeño
+out-of-sample del modelo.
+
+**Política operativa recomendada**:
+1. Producir inicialmente con `event_uplift.enabled: false` (modelo base limpio).
+2. Activar la capa solo después de re-calibrar los factores Dic 24-25 / Dic 31 con
+   datos históricos de **múltiples años** de la propia cadena.
+3. Mantener un A/B contra el modelo base para detectar si la capa empeora algún
+   segmento (formato, región, categoría) no presente en los datos de calibración.
+
+---
+
+## 8. Métrica primaria: WAPE
 
 **Opciones**: MAPE, sMAPE, WAPE, MASE, RMSE.
 
@@ -94,7 +130,7 @@ Documento de decisiones tomadas durante el challenge. Cada entrada incluye **opc
 
 ---
 
-## 8. Cash buffer: P90 de residuos por tienda
+## 9. Cash buffer: P90 de residuos por tienda
 
 **Opciones**:
 1. Buffer constante (e.g., 20%).
@@ -110,7 +146,7 @@ Documento de decisiones tomadas durante el challenge. Cada entrada incluye **opc
 
 ---
 
-## 9. Categoricals: encoded integer codes (no one-hot, no target encoding)
+## 10. Categoricals: encoded integer codes (no one-hot, no target encoding)
 
 **Opciones**: one-hot, label encoding, target encoding, sklearn native.
 
@@ -120,7 +156,7 @@ Documento de decisiones tomadas durante el challenge. Cada entrada incluye **opc
 
 ---
 
-## 10. MLflow: file-based local
+## 11. MLflow: file-based local
 
 **Opciones**: file-based, sqlite, remote tracking server.
 
@@ -130,7 +166,7 @@ Documento de decisiones tomadas durante el challenge. Cada entrada incluye **opc
 
 ---
 
-## 11. Datos faltantes en `amount_cash` (5.9%)
+## 12. Datos faltantes en `amount_cash` (5.9 %)
 
 **Opciones**:
 1. Imputar (media, mediana, model-based).
@@ -142,6 +178,6 @@ Documento de decisiones tomadas durante el challenge. Cada entrada incluye **opc
 
 ---
 
-## 12. Predicciones clippadas a ≥ 0
+## 13. Predicciones clippadas a ≥ 0
 
 Demand y cash son no-negativas por definición. Sin clipping, una predicción negativa rompe la interpretación operativa. Aplicado en `modeling.assemble_predictions` y `cash_forecasting.predict_cash`.

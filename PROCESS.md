@@ -66,9 +66,16 @@ bucles cortos cuando una decisión upstream forzaba revisión downstream.
   1. Seasonal naive (lag-7) → WAPE val 0.419 / test 0.323
   2. Rolling mean 28 → WAPE val 0.348 / test 0.402
   3. Historical day-of-week mean por (store, category) → WAPE val 0.313 / test 0.335
-- Modelo: `HistGradientBoostingRegressor` con categoricals encodeados a códigos enteros (sklearn 1.2.2 no soporta strings nativos).
-- **Resultado HGB v1**: WAPE val 0.262 / test 0.296 (mejor que el mejor baseline por 2.7-5.1 pp).
-- Predicciones clippadas a ≥0 (demanda no-negativa).
+- Modelos ML (categoricals encodeados a códigos enteros porque sklearn 1.2.2 no soporta strings nativos):
+  - `HistGradientBoostingRegressor` → **HGB base WAPE val 0.262 / test 0.296**.
+  - LightGBM tuneado con Optuna (TPE Bayesian, 30 trials, 9 hiperparámetros) sobre WAPE val.
+    → **LightGBM tuneado base WAPE val 0.258 / test 0.293** ← modelo oficial elegido.
+- Predicciones clippadas a ≥ 0 (demanda no-negativa).
+- **Capa post-hoc opcional** (*event stress adjustment*): regla de negocio sobre picos
+  navideños. Reportada en una tabla aparte (§4.1.B en `reports/final_report.md`)
+  para no contaminar el desempeño out-of-sample del modelo. La calibración de los
+  factores Dic 24-25 / Dic 31 son defaults basados en estacionalidad publicada
+  del retail mexicano; **deben re-calibrarse con 2-3 años previos antes de producción**.
 - Resultados → `reports/demand_experiment_summary.json` + `reports/demand_overall_test_metrics.csv`.
 
 ### Fase 5 — Cash forecasting

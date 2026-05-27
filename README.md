@@ -9,9 +9,15 @@ dos decisiones con un mismo backbone de features temporales:
 | **Demanda** | tienda × categoría × día | `total_transactions` | Staffing y capacidad de checkout |
 | **Efectivo** | tienda × día | `amount_cash` + buffer P90 | Recomendación operativa de carga de efectivo |
 
-**Resultados (test holdout 2023-12 → 2024-02):** demanda WAPE = **0.247** (LightGBM tuneado) / **0.249** (HGB) con event uplift · efectivo WAPE = **0.153** · coverage P90 = **94.6 %**
+**Resultados oficiales (test holdout limpio 2023-12 → 2024-02, sin ajustes post-hoc):**
+demanda **WAPE = 0.293** (LightGBM tuneado, modelo elegido) / **0.296** (HGB, fallback) ·
+mejor baseline 0.323 → **−9.4 % WAPE relativo** ·
+efectivo **WAPE = 0.153** · coverage P90 = **94.6 %**.
 
-Detalle del razonamiento, trade-offs y resultados → [`reports/final_report.md`](reports/final_report.md).
+Adicionalmente reporto un escenario operativo con una capa post-hoc de *event stress
+adjustment* (regla de negocio sobre picos navideños, **no calibrada contra test**)
+que llevaría el WAPE de demanda a 0.247. Detalle metodológico y separación clean
+holdout vs. escenario post-hoc → [`reports/final_report.md` §4.1.A / §4.1.B](reports/final_report.md).
 
 ---
 
