@@ -15,6 +15,8 @@ from retail_ops_forecasting.config import load_config  # noqa: E402
 from retail_ops_forecasting.data import load_calendar, load_stores  # noqa: E402
 from retail_ops_forecasting.reporting import (  # noqa: E402
     plot_actual_vs_pred,
+    plot_cash_coverage_per_store,
+    plot_error_by_category,
     plot_residual_hist,
     write_breakdowns,
     write_overall,
@@ -78,7 +80,7 @@ def main() -> int:
             "Demand overall test: %s",
             {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in s.items()},
         )
-        tracking.log_metrics({f"test_{k}": v for k, v in s.items() if isinstance(v, int | float)})
+        tracking.log_metrics({f"test_{k}": v for k, v in s.items() if isinstance(v, (int, float))})
         write_breakdowns(
             demand_test,
             cfg.paths.figures_dir,
@@ -97,6 +99,10 @@ def main() -> int:
             "Demand forecast — test",
         )
         plot_residual_hist(demand_test, cfg.paths.figures_dir / "demand_residuals.png")
+        plot_error_by_category(
+            demand_test,
+            cfg.paths.figures_dir / "error_demand_by_category.png",
+        )
 
         # Log figures + breakdown CSVs to MLflow
         for fname in (
@@ -130,7 +136,7 @@ def main() -> int:
             "Cash overall test: %s",
             {k: f"{v:.4f}" if isinstance(v, float) else v for k, v in s.items()},
         )
-        tracking.log_metrics({f"test_{k}": v for k, v in s.items() if isinstance(v, int | float)})
+        tracking.log_metrics({f"test_{k}": v for k, v in s.items() if isinstance(v, (int, float))})
         write_breakdowns(
             cash_test,
             cfg.paths.figures_dir,
@@ -146,6 +152,10 @@ def main() -> int:
             cash_test, cfg.paths.figures_dir / "cash_actual_vs_pred.png", "Cash forecast — test"
         )
         plot_residual_hist(cash_test, cfg.paths.figures_dir / "cash_residuals.png")
+        plot_cash_coverage_per_store(
+            cash_test,
+            cfg.paths.figures_dir / "cash_coverage_per_store.png",
+        )
 
         for fname in (
             "cash_actual_vs_pred.png",

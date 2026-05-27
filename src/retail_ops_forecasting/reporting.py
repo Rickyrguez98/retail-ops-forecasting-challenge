@@ -20,7 +20,7 @@ def _grouped(df: pd.DataFrame, group_cols: list[str], y_true: str, y_pred: str) 
     for keys, sub in df.groupby(grouper, dropna=False):
         if not isinstance(keys, tuple):
             keys = (keys,)
-        row = dict(zip(group_cols, keys, strict=False))
+        row = dict(zip(group_cols, keys))
         row.update(mt.summarize(sub[y_true], sub[y_pred]))
         rows.append(row)
     return pd.DataFrame(rows).sort_values(group_cols).reset_index(drop=True)
@@ -82,6 +82,70 @@ def plot_residual_hist(df: pd.DataFrame, out_path: Path, y_true="y_true", y_pred
     ax.hist(res.dropna(), bins=80, color="steelblue", alpha=0.8)
     ax.axvline(0, color="k", lw=0.8)
     ax.set_title("Residuals (actual - predicted)")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=140)
+    plt.close(fig)
+    return out_path
+
+
+def plot_error_by_category(
+    df: pd.DataFrame,
+    out_path: Path,
+    y_true: str = "y_true",
+    y_pred: str = "y_pred",
+    category_col: str = "category",
+) -> Path:
+    """Boxplot of signed residuals (actual - predicted) per category.
+
+    Used to spot categories where the model systematically over- or under-forecasts.
+    """
+    residuals = (df[y_true] - df[y_pred]).rename("residual")
+    plot_df = pd.concat([df[category_col].rename("category"), residuals], axis=1).dropna()
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    categories = sorted(plot_df["category"].unique())
+    data = [plot_df.loc[plot_df["category"] == c, "residual"].values for c in categories]
+    ax.boxplot(data, labels=categories, showfliers=False, patch_artist=True)
+    ax.axhline(0, color="k", lw=0.8, linestyle="--")
+    ax.set_title("Demand residuals by category (test set)")
+    ax.set_ylabel("residual (actual - predicted)")
+    ax.tick_params(axis="x", rotation=20)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=140)
+    plt.close(fig)
+    return out_path
+
+
+def plot_cash_coverage_per_store(
+    df: pd.DataFrame,
+    out_path: Path,
+    y_true: str = "y_true",
+    rec_col: str = "recommended_cash",
+    store_col: str = "store_id",
+    target_coverage: float = 0.90,
+) -> Path:
+    """Histogram of per-store coverage (fraction of days where recommended >= actual).
+
+    Used to verify the cash buffer rule holds per store, not just in aggregate.
+    """
+    if rec_col not in df.columns:
+        # Backstop: derive from y_pred + a per-store residual P90 if recommended column is absent.
+        residuals = (df[y_true] - df["y_pred"]).abs()
+        p90 = residuals.groupby(df[store_col]).quantile(0.90)
+        df = df.copy()
+        df[rec_col] = df["y_pred"].clip(lower=0) + df[store_col].map(p90)
+    covered = (df[rec_col] >= df[y_true]).astype(int)
+    coverage = covered.groupby(df[store_col]).mean()
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.hist(coverage.values, bins=30, color="seagreen", alpha=0.8, edgecolor="white")
+    ax.axvline(
+        target_coverage, color="red", lw=1.2, linestyle="--", label=f"target {target_coverage:.0%}"
+    )
+    ax.set_title(f"Cash coverage per store (mean = {coverage.mean():.3f})")
+    ax.set_xlabel("fraction of days where recommended ≥ actual")
+    ax.set_ylabel("number of stores")
+    ax.legend()
     fig.tight_layout()
     fig.savefig(out_path, dpi=140)
     plt.close(fig)

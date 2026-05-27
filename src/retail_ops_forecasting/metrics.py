@@ -91,7 +91,7 @@ def grouped_metrics(
         if not isinstance(keys, tuple):
             keys = (keys,)
         m = summarize(sub[y_true_col], sub[y_pred_col])
-        row = dict(zip(group_cols, keys, strict=False))
+        row = dict(zip(group_cols, keys))
         row.update(m)
         rows.append(row)
     return pd.DataFrame(rows).sort_values(group_cols).reset_index(drop=True)

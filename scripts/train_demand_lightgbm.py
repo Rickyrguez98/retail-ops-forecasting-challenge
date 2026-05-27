@@ -185,7 +185,7 @@ def main() -> int:
                 {
                     "feature_cols": fit.feature_cols,
                     "best_params": {
-                        k: (v if isinstance(v, int | float | str | bool) else str(v))
+                        k: (v if isinstance(v, (int, float, str, bool)) else str(v))
                         for k, v in fit.best_params.items()
                     },
                     "best_iteration": fit.best_iteration,

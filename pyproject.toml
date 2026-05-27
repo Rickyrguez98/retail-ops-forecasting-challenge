@@ -7,7 +7,11 @@ name = "retail-ops-forecasting"
 version = "0.1.0"
 description = "Demand and cash forecasting for Mexican retail operations (Walmart Senior DS challenge)."
 readme = "README.md"
-requires-python = ">=3.10"
+# The codebase deliberately avoids Python 3.10+ syntax so it runs on
+# 3.9 environments (some macOS users have a working lightgbm/libomp
+# stack only on miniforge 3.9). CI and the production Dockerfile use
+# Python 3.11 — that is the primary target.
+requires-python = ">=3.9"
 authors = [{ name = "Candidate" }]
 license = { text = "Proprietary" }
 
@@ -16,7 +20,8 @@ where = ["src"]
 
 [tool.black]
 line-length = 100
-target-version = ["py311"]
+# Lowest supported runtime is py39; CI / Docker run on py311.
+target-version = ["py39"]
 
 [tool.isort]
 profile = "black"
@@ -25,11 +30,14 @@ known_first_party = ["retail_ops_forecasting"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+# Match black: py39 is the floor so ruff doesn't try to autofix to
+# syntax that breaks on the lowest supported interpreter.
+target-version = "py39"
 extend-exclude = ["notebooks", "mlruns"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+# E501: line length handled by black.
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]

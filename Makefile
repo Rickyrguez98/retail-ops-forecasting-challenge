@@ -1,5 +1,10 @@
 .PHONY: help install quality prepare train-demand train-demand-lgb train-cash evaluate report all test lint format clean
 
+# Default interpreter. Project requires Python >=3.10 (declared in
+# pyproject.toml). On macOS where lightgbm wheels need libomp.dylib
+# installed system-wide and python.org's 3.11 may not have it bundled,
+# you can override with `make PYTHON=python3.9 all` if you have a
+# working env there. CI (GitHub Actions) always uses python3.11.
 PYTHON ?= python3
 N_TRIALS ?= 30
 
